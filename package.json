@@ -1,0 +1,13 @@
+{
+  "name": "ayunka-studio",
+  "version": "1.0.0",
+  "description": "Ayünka Crea — Studio: costeo de impresión 3D, inventario, cotizaciones y planificación.",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve .",
+    "android:add": "npm i @capacitor/core @capacitor/cli @capacitor/android && npx cap init \"Ayunka Studio\" cl.ayunka.studio --web-dir=. && npx cap add android",
+    "android:open": "npx cap sync android && npx cap open android"
+  },
+  "keywords": ["impresion3d","costeo","ayunka","pwa","cotizaciones"],
+  "license": "MIT"
+}

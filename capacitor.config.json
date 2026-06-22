@@ -1,0 +1,6 @@
+{
+  "appId": "cl.ayunka.studio",
+  "appName": "Ayunka Studio",
+  "webDir": ".",
+  "bundledWebRuntime": false
+}
