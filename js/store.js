@@ -78,7 +78,20 @@
 
   window.DB = DB;
   window.uid = uid;
-  window.saveDB = function(){ DB._seed=false; try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ alert('No se pudo guardar (almacenamiento lleno).'); } if(window.Sync&&window.Sync.pushSoon)window.Sync.pushSoon(); };
+  const BKEY='ayunka-studio-backups';
+  function loadBackups(){ try{return JSON.parse(localStorage.getItem(BKEY))||[];}catch(e){return [];} }
+  function snapshot(reason){
+    try{ const arr=loadBackups(); const last=arr[arr.length-1];
+      if(reason!=='antes de restaurar' && last && (Date.now()-last.t)<60000) return;
+      arr.push({t:Date.now(),reason:reason||'auto',db:JSON.parse(JSON.stringify(DB))});
+      while(arr.length>12) arr.shift();
+      localStorage.setItem(BKEY,JSON.stringify(arr));
+    }catch(e){}
+  }
+  window.snapshotDB=snapshot;
+  window.listBackups=()=>loadBackups().map(b=>({t:b.t,reason:b.reason,n:(b.db&&b.db.products?b.db.products.length:0),f:(b.db&&b.db.filaments?b.db.filaments.length:0)}));
+  window.restoreBackup=function(t){ const arr=loadBackups(); const b=arr.find(x=>x.t===t); if(!b) return false; snapshot('antes de restaurar'); const d=JSON.parse(JSON.stringify(b.db)); d._seed=false; d._updatedAt=Date.now(); localStorage.setItem(KEY,JSON.stringify(d)); location.reload(); return true; };
+  window.saveDB = function(){ DB._seed=false; snapshot('edicion'); try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ alert('No se pudo guardar (almacenamiento lleno).'); } if(window.Sync&&window.Sync.pushSoon)window.Sync.pushSoon(); };
   window.resetDB = function(){ localStorage.removeItem(KEY); location.reload(); };
   window.exportDB = function(){ return JSON.stringify(DB,null,2); };
   window.importDB = function(json){ const d=JSON.parse(json); d._seed=false; d._updatedAt=Date.now(); localStorage.setItem(KEY, JSON.stringify(d)); location.reload(); };

@@ -10,6 +10,7 @@
   function note(m){ st.status=m; if(window.A&&window.A._syncNote) window.A._syncNote(m); }
 
   function applyRemote(data){
+    if(window.snapshotDB) window.snapshotDB('antes de sincronizar');
     st.applying=true;
     for(const k in data.db){ window.DB[k]=data.db[k]; }
     window.DB._updatedAt=data.updatedAt||Date.now(); window.DB._seed=false;

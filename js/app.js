@@ -313,7 +313,7 @@
   function daySave(){const idx=DB.schedule.findIndex(x=>x.id===A._day.id);DB.schedule[idx]=A._day;save();closeModal();render();toast('Día actualizado');}
 
   /* ---------- AJUSTES ---------- */
-  function vAjustes(){const p=DB.params,b=p.business;const f=(id,lbl,val,step)=>`<label class="field">${lbl}<input id="${id}" type="number" ${step?`step="${step}"`:''} value="${val}"></label>`;
+  function vAjustes(){const p=DB.params,b=p.business;const f=(id,lbl,val,step)=>`<label class="field">${lbl}<input id="${id}" type="number" ${step?`step="${step}"`:''} value="${val}"></label>`;const bks=(window.listBackups?window.listBackups():[]).slice().reverse();
     return `<h1 class="page">Ajustes</h1><p class="sub">Parámetros de costeo y datos del negocio</p>
       <div class="card"><div class="sectiontitle" style="margin-top:0">Costos</div><div class="formgrid">
         ${f('s-pla','PLA por defecto (CLP/kg)',p.plaPrice)}${f('s-petg','PETG por defecto (CLP/kg)',p.petgPrice)}
@@ -342,11 +342,16 @@
         <div class="formgrid" style="margin-top:6px"><label class="field">Tu email (login de sync)<input id="sync-email" type="email" value="${esc((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'{}').email)||'')}" placeholder="tucorreo@ejemplo.com"></label>
         <label class="field">Contraseña de sync<input id="sync-pass" type="password" value="${esc((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'{}').password)||'')}" placeholder="elige una clave"></label></div>
         <div class="row" style="margin-top:10px"><button class="btn primary sm" onclick="A.syncSave()">Activar / guardar</button><button class="btn ghost sm" onclick="A.syncOff()">Desactivar</button></div>
-        <div class="muted" style="margin-top:8px">Crea un proyecto gratis en Firebase, activa Firestore y Autenticación por Email/Contraseña, pega el firebaseConfig y usa el MISMO email y contraseña en el celular y el PC. Aplica las reglas de seguridad (archivo firestore.rules) para que solo tú accedas. La app debe estar publicada en https. Las fotos/STL no se sincronizan por ahora.</div></div>`;}
+        <div class="muted" style="margin-top:8px">Crea un proyecto gratis en Firebase, activa Firestore y Autenticación por Email/Contraseña, pega el firebaseConfig y usa el MISMO email y contraseña en el celular y el PC. Aplica las reglas de seguridad (archivo firestore.rules) para que solo tú accedas. La app debe estar publicada en https. Las fotos/STL no se sincronizan por ahora.</div></div>
+      <div class="card" style="margin-top:14px"><div class="sectiontitle" style="margin-top:0">Copias de seguridad automáticas (este dispositivo)</div>
+        <div class="muted">Se guarda una copia cada vez que editas o sincronizas. Puedes volver a cualquiera.</div>
+        ${bks.length?bks.map(bk=>`<div class="row between" style="padding:5px 0;border-bottom:1px solid var(--line)"><span>${new Date(bk.t).toLocaleString('es-CL')} <span class="muted">· ${esc(bk.reason)} · ${bk.n} prod · ${bk.f} filam.</span></span><button class="btn ghost sm" onclick="A.restoreBk(${bk.t})">Restaurar</button></div>`).join(''):'<div class="muted" style="margin-top:6px">Aún no hay copias (se crean al usar la app).</div>'}
+      </div>`;}
   function parseCfg(t){ t=(t||'').trim().replace(/^(export\s+)?const\s+\w+\s*=\s*/,'').replace(/;\s*$/,''); try{return JSON.parse(t);}catch(e){} try{return (new Function('return ('+t+')'))();}catch(e){} return null; }
   function syncSave(){ const fb=parseCfg(document.getElementById('sync-cfg').value); if(!fb||!fb.projectId){toast('No pude leer la config de Firebase (pega el objeto firebaseConfig completo)');return;} const ws=document.getElementById('sync-ws').value.trim()||'ayunka'; const em=document.getElementById('sync-email').value.trim(); const pw=document.getElementById('sync-pass').value; if(!em||!pw){toast('Ingresa tu email y una contraseña para la sincronización');return;} window.Sync.setCfg(fb,ws,em,pw); toast('Sincronización configurada · recargando'); setTimeout(()=>location.reload(),800); }
   function syncOff(){ if(confirm('¿Desactivar la sincronización en la nube?')){ window.Sync.clearCfg(); toast('Sincronización desactivada · recargando'); setTimeout(()=>location.reload(),600);} }
   function _syncNote(m){ const e=document.getElementById('sync-status'); if(e) e.textContent='Estado: '+m; }
+  function restoreBk(t){ if(confirm("¿Restaurar esta copia? Tus datos actuales se reemplazan, pero quedan guardados en una copia nueva por si acaso.")) window.restoreBackup(t); }
   function saveParams(){const p=DB.params,g=id=>num($('#'+id).value);p.plaPrice=g('s-pla');p.petgPrice=g('s-petg');p.kwh=g('s-kwh');p.powerKw=g('s-pow');p.printerCost=g('s-pcost');p.amortYears=g('s-amyears')||1;p.daysYear=g('s-days')||300;p.hoursDay=g('s-hours')||8;p.laborH=g('s-labor');p.prepMin=g('s-prep');p.pack=g('s-pack');p.failRate=g('s-fail');p.markup=g('s-markup')||1;p.dayCapacityH=g('s-cap')||13;p.abonoPct=g('s-abono')||0.5;p.quoteValidDays=g('s-valid');p.business.name=$('#s-bname').value;p.business.ig=$('#s-big').value;p.business.phone=$('#s-bphone').value;p.business.email=$('#s-bemail').value;save();render();toast('Ajustes guardados');}
   function expData(){const blob=new Blob([window.exportDB()],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ayunka-studio-backup.json';a.click();}
   function impData(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=e=>{const fr=new FileReader();fr.onload=()=>{try{window.importDB(fr.result);}catch(x){toast('Archivo inválido');}};fr.readAsText(e.target.files[0]);};i.click();}
@@ -374,7 +379,7 @@
     editFil,saveFil,delFil,filAuto,editPlate,renderPlateModal,plateAdd,plateQty,plateDel,plateRefresh,savePlate,delPlate,printPlate,
     editClient,saveClient,delClient,quoteForClient,
     editQuote,renderQuoteModal,qPickClient,qCalcOpen,renderCalcModal,qcTime,qcRefresh,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
-    planSync,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,syncSave,syncOff,_syncNote,expData,impData,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null};
+    planSync,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,syncSave,syncOff,_syncNote,restoreBk,expData,impData,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null};
 
   window.__render=render;
   try{ window.__syncCfgRaw = JSON.stringify((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'null')||{}).firebase||'',null,0); }catch(e){}
