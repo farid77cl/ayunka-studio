@@ -68,16 +68,18 @@
 
   let DB;
   try { DB = JSON.parse(localStorage.getItem(KEY)) || null; } catch(e){ DB = null; }
-  if (!DB) DB = JSON.parse(JSON.stringify(DEFAULTS));
+  let _fresh=false;
+  if (!DB) { DB = JSON.parse(JSON.stringify(DEFAULTS)); _fresh=true; }
   for (const k in DEFAULTS){ if (!(k in DB)) DB[k] = JSON.parse(JSON.stringify(DEFAULTS[k])); }
   for (const k in DEFAULTS.params){ if (!(k in DB.params)) DB.params[k] = DEFAULTS.params[k]; }
   (DB.products||[]).forEach(pr=>{ if(!('filamentId' in pr))pr.filamentId=null; if(!('imageId' in pr))pr.imageId=null; if(!('files' in pr))pr.files=[]; });
   (DB.products||[]).forEach(pr=>{ if(!('stock' in pr))pr.stock=0; if(!('postMin' in pr))pr.postMin=0; });
+  if(_fresh && !('_seed' in DB)) DB._seed=true;
 
   window.DB = DB;
   window.uid = uid;
-  window.saveDB = function(){ try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ alert('No se pudo guardar (almacenamiento lleno).'); } if(window.Sync&&window.Sync.pushSoon)window.Sync.pushSoon(); };
+  window.saveDB = function(){ DB._seed=false; try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ alert('No se pudo guardar (almacenamiento lleno).'); } if(window.Sync&&window.Sync.pushSoon)window.Sync.pushSoon(); };
   window.resetDB = function(){ localStorage.removeItem(KEY); location.reload(); };
   window.exportDB = function(){ return JSON.stringify(DB,null,2); };
-  window.importDB = function(json){ const d=JSON.parse(json); localStorage.setItem(KEY, JSON.stringify(d)); location.reload(); };
+  window.importDB = function(json){ const d=JSON.parse(json); d._seed=false; d._updatedAt=Date.now(); localStorage.setItem(KEY, JSON.stringify(d)); location.reload(); };
 })();

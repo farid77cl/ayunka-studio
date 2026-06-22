@@ -220,7 +220,7 @@
         <label class="field">Teléfono<input id="q-phone" value="${esc(q.client.phone)}" oninput="A._quote.client.phone=this.value"></label>
         <label class="field" style="grid-column:1/3">Email<input id="q-email" value="${esc(q.client.email)}" oninput="A._quote.client.email=this.value"></label></div>
       <div class="sectiontitle">Ítems <span class="muted">(descripción · cant · precio)</span></div>${rows||'<div class="muted">Agrega ítems</div>'}
-      <div class="row" style="margin-top:8px"><select id="q-add" onchange="A.qAdd(this.value)" style="flex:1">${prodOpts}</select><button class="btn ghost sm" onclick="A.qAddFree()">+ Ítem libre</button></div>
+      <div class="row" style="margin-top:8px"><select id="q-add" onchange="A.qAdd(this.value)" style="flex:1">${prodOpts}</select><button class="btn ghost sm" onclick="A.qAddFree()">+ Ítem libre</button><button class="btn ghost sm" onclick="A.qCalcOpen()">+ Calcular pieza</button></div>
       <label class="field" style="margin-top:12px">Nota<input id="q-note" value="${esc(q.note)}" oninput="A._quote.note=this.value"></label>
       <label class="row" style="margin-top:10px;gap:8px"><input type="checkbox" style="width:auto" ${q.ivaIncluded?'checked':''} onchange="A._quote.ivaIncluded=this.checked;A.qRefresh()"> Incluir IVA 19%</label>
       <div class="row between" style="margin-top:10px"><span>Total</span><b id="q-tot" style="font-size:20px">${fmt(tot)}</b></div>
@@ -238,6 +238,28 @@
     if(andPdf){try{window.genQuotePDF(saved);}catch(e){toast('Error al generar PDF');}}}
   function delQuote(id){DB.quotes=DB.quotes.filter(x=>x.id!==id);save();closeModal();render();toast('Cotización eliminada');}
   function pdfQuote(id){try{window.genQuotePDF(DB.quotes.find(x=>x.id===id));}catch(e){toast('Error al generar PDF');}}
+
+  function renderCalcModal(){
+    const t=A._calc;
+    const filOpts=`<option value="">— precio material por defecto —</option>`+DB.filaments.map(f=>`<option value="${f.id}" ${t.filamentId===f.id?'selected':''}>${esc(f.color)} · ${esc(f.marca)} (${fmt(f.rollPrice/f.rollGrams*1000)}/kg)</option>`).join('');
+    const c=calc.costPiece(t),price=calc.round500(calc.suggestPrice(c.total));
+    modal(`<h2>Calcular pieza</h2><div class="muted" style="margin-bottom:10px">Ingresa los datos y se calcula el precio para sumarlo a la cotización.</div>
+      <label class="field">Descripción<input id="qc-name" value="${esc(t.name)}" oninput="A._calc.name=this.value" placeholder="ej: Llavero personalizado"></label>
+      <div class="formgrid" style="margin-top:8px">
+        <label class="field">Material<select id="qc-mat" onchange="A._calc.material=this.value;A.qcRefresh()">${matOptions(t.material)}</select></label>
+        <label class="field">Filamento (precio real)<select id="qc-fil" onchange="A._calc.filamentId=this.value||null;A.qcRefresh()">${filOpts}</select></label>
+        <label class="field">Gramos de filamento (g)<input id="qc-g" type="number" value="${t.grams}" oninput="A._calc.grams=this.value;A.qcRefresh()"></label>
+        <label class="field">N° de colores<input id="qc-c" type="number" min="1" value="${t.colors}" oninput="A._calc.colors=this.value;A.qcRefresh()"></label>
+        <label class="field">Tiempo impresión<div class="row" style="gap:6px"><input id="qc-th" type="number" min="0" value="${Math.floor((+t.timeH||0)+1e-9)}" oninput="A.qcTime()" style="width:60px"><span class="muted">h</span><input id="qc-tm" type="number" min="0" max="59" value="${Math.round(((+t.timeH||0)%1)*60)}" oninput="A.qcTime()" style="width:60px"><span class="muted">min</span></div></label>
+        <label class="field">Postproducción (min)<input id="qc-post" type="number" value="${t.postMin}" oninput="A._calc.postMin=this.value;A.qcRefresh()"></label>
+      </div>
+      <div class="card" style="margin:12px 0"><div class="row between"><span>Costo de producción</span><b id="qc-cost">${fmt(c.total)}</b></div><div class="row between"><span>Precio sugerido</span><b id="qc-price" style="color:var(--coral);font-size:20px">${fmt(price)}</b></div></div>
+      <div class="row between"><button class="btn ghost" onclick="A.renderQuoteModal()">Volver</button><button class="btn coral" onclick="A.qCalcAdd()">Agregar a la cotización</button></div>`);
+  }
+  function qcTime(){A._calc.timeH=calc.toHours(document.getElementById('qc-th').value,document.getElementById('qc-tm').value);qcRefresh();}
+  function qcRefresh(){const c=calc.costPiece(A._calc),price=calc.round500(calc.suggestPrice(c.total));const s=(i,v)=>{const e=document.getElementById(i);if(e)e.innerHTML=v;};s('qc-cost',fmt(c.total));s('qc-price',fmt(price));}
+  function qCalcOpen(){A._calc={name:'',material:'PLA',filamentId:null,grams:'',timeH:0,colors:1,postMin:5};renderCalcModal();}
+  function qCalcAdd(){const t=A._calc;const price=calc.round500(calc.suggestPrice(calc.costPiece(t).total));A._quote.items.push({name:t.name||'Pieza personalizada',qty:1,unitPrice:price,productId:null});renderQuoteModal();}
 
   /* ---------- PLANIFICACIÓN ---------- */
   function vPlan(){
@@ -351,8 +373,8 @@
     addDesigns,editProduct,renderProductModal,prodRefresh,prodTime,prodImg,prodAddFiles,prodOpenFile,prodDelFile,saveProduct,delProduct,
     editFil,saveFil,delFil,filAuto,editPlate,renderPlateModal,plateAdd,plateQty,plateDel,plateRefresh,savePlate,delPlate,printPlate,
     editClient,saveClient,delClient,quoteForClient,
-    editQuote,renderQuoteModal,qPickClient,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
-    planSync,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,syncSave,syncOff,_syncNote,expData,impData,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null};
+    editQuote,renderQuoteModal,qPickClient,qCalcOpen,renderCalcModal,qcTime,qcRefresh,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
+    planSync,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,syncSave,syncOff,_syncNote,expData,impData,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null};
 
   window.__render=render;
   try{ window.__syncCfgRaw = JSON.stringify((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'null')||{}).firebase||'',null,0); }catch(e){}
