@@ -93,3 +93,15 @@ Para que la app se actualice en todos tus dispositivos, usa Firebase (gratis):
 
 La app debe estar publicada en https (GitHub Pages) para sincronizar. Las fotos y archivos STL no se sincronizan por ahora (quedan en cada dispositivo).
 
+
+## Seguridad (importante)
+
+La app publicada es pública (cualquiera puede abrir la página), pero **no contiene tus datos**: viven en tu navegador y, al sincronizar, en tu Firebase protegido por tu cuenta. Para que **solo tú** accedas a tus datos:
+
+1. **Firebase → Authentication → Sign-in method:** activa **Email/Password**.
+2. **Firebase → Firestore → Rules:** pega el contenido de `firestore.rules` (reemplaza el email por el tuyo) y pulsa **Publish**. Esto bloquea el acceso a cualquiera que no sea tu cuenta.
+3. **En la app (Ajustes → Sincronización):** pega el firebaseConfig, tu **email** y una **contraseña**, y activa. Usa el **mismo email y contraseña** en el celular y el PC para que se sincronicen entre sí.
+4. (Opcional, recomendado) En Google Cloud → Credenciales, **restringe la API key** por "Referentes HTTP" a tu dominio `https://TU-USUARIO.github.io/*`.
+
+GitHub Pages sirve la app por **HTTPS** automáticamente. El `firebaseConfig` no es secreto (la seguridad real son las reglas + tu login); aun así, tu email/contraseña se guardan solo en tu dispositivo.
+

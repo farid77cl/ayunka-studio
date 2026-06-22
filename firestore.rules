@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Ayünka Studio — solo TU cuenta puede leer/escribir tus datos.
+    // Reemplaza el email por el que usarás para la sincronización.
+    match /studios/{doc} {
+      allow read, write: if request.auth != null
+                         && request.auth.token.email == 'farid.abara.espinoza@gmail.com';
+    }
+
+    // Todo lo demás queda bloqueado.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
