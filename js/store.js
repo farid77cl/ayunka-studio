@@ -36,6 +36,8 @@
     plates: [],
     quotes: [],
     orders: [],
+    sales: [],
+    expenses: [],
     schedule: seedSchedule(),
     seq: { quote: 1 }
   };
@@ -76,6 +78,8 @@
   (DB.products||[]).forEach(pr=>{ if(!('filamentId' in pr))pr.filamentId=null; if(!('imageId' in pr))pr.imageId=null; if(!('files' in pr))pr.files=[]; });
   (DB.products||[]).forEach(pr=>{ if(!('stock' in pr))pr.stock=0; if(!('postMin' in pr))pr.postMin=0; });
   if(!DB.orders) DB.orders=[];
+  if(!DB.sales) DB.sales=[];
+  if(!DB.expenses) DB.expenses=[];
   if(_fresh && !('_seed' in DB)) DB._seed=true;
 
   window.DB = DB;

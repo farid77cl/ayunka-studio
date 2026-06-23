@@ -56,5 +56,6 @@
     if(it.calc){ const N=Math.max(1,+it.calc.unitsPerPlate||1); h+=Math.ceil((+it.qty||0)/N)*(+it.calc.timeH||0); }
     else if(it.productId){ const p=window.DB.products.find(x=>x.id===it.productId); if(p) h+=(+p.timeH||0)*(+it.qty||0); }
   }); return h; }
-  window.calc={costPiece,costCustom,kgPrice,printHoursOfQuote,suggestPrice,round500,priceOf,marginPct,costPlate,amortPerH,elecPerH,kgPriceFor,purgeFactor,hm,toHours,printHoursOf,productionDays};
+  function costOfQuoteItem(it){ if(it&&it.calc) return costCustom(it.calc).total; if(it&&it.productId){const p=window.DB.products.find(x=>x.id===it.productId); if(p) return costPiece(p).total;} return 0; }
+  window.calc={costPiece,costCustom,costOfQuoteItem,kgPrice,printHoursOfQuote,suggestPrice,round500,priceOf,marginPct,costPlate,amortPerH,elecPerH,kgPriceFor,purgeFactor,hm,toHours,printHoursOf,productionDays};
 })();

@@ -48,9 +48,9 @@
     const rows=DB.products.map(p=>{
       const c=calc.costPiece(p),price=calc.priceOf(p),m=calc.marginPct(price,c.total);
       const fil=p.filamentId?DB.filaments.find(f=>f.id===p.filamentId):null;
-      const thumb=p.imageId?`<img class="thumb" data-img-id="${p.imageId}" alt="">`:`<div class="thumb ph"><i>🧵</i></div>`;
+      const thumb=p.imageUrl?`<img class="thumb" src="${esc(p.imageUrl)}" alt="">`:(p.imageId?`<img class="thumb" data-img-id="${p.imageId}" alt="">`:`<div class="thumb ph"><i>🧵</i></div>`);
       return `<tr>
-        <td><div class="row" style="gap:10px;flex-wrap:nowrap">${thumb}<div><b>${esc(p.name)}</b><div class="muted">${esc(p.material)} · ${p.grams}g · ${calc.hm(p.timeH)} · ${p.colors}c${fil?` · ${esc(fil.color)}/${esc(fil.marca)}`:''}</div><div class="row" style="gap:6px;margin-top:4px"><span class="pill ${p.imageId?'ok':'bad'}">${p.imageId?'📷 foto':'sin foto'}</span><span class="pill ${(p.files&&p.files.length)?'ok':'bad'}">${(p.files&&p.files.length)?'📄 STL':'sin STL'}</span><span class="tag">stock: ${p.stock||0}</span></div></div></div></td>
+        <td><div class="row" style="gap:10px;flex-wrap:nowrap">${thumb}<div><b>${esc(p.name)}</b><div class="muted">${esc(p.material)} · ${p.grams}g · ${calc.hm(p.timeH)} · ${p.colors}c${fil?` · ${esc(fil.color)}/${esc(fil.marca)}`:''}</div><div class="row" style="gap:6px;margin-top:4px"><span class="pill ${(p.imageId||p.imageUrl)?'ok':'bad'}">${(p.imageId||p.imageUrl)?'📷 foto':'sin foto'}</span><span class="pill ${(p.files&&p.files.length)?'ok':'bad'}">${(p.files&&p.files.length)?'📄 STL':'sin STL'}</span><span class="tag">stock: ${p.stock||0}</span></div></div></div></td>
         <td class="num">${fmt(c.total)}</td><td class="num">${fmt(price)}</td>
         <td class="num"><span class="pill ${m>=0.6?'ok':m>=0.4?'warn':'bad'}">${pct(m)}</span></td>
         <td class="num"><button class="btn ghost sm" onclick="A.editProduct('${p.id}')">Editar</button></td></tr>`;}).join('');
@@ -66,7 +66,7 @@
     const p=A._prod;
     const filOpts=`<option value="">— precio material por defecto —</option>`+DB.filaments.map(f=>`<option value="${f.id}" ${p.filamentId===f.id?'selected':''}>${esc(f.color)} · ${esc(f.marca)} (${fmt(f.rollPrice/f.rollGrams*1000)}/kg)</option>`).join('');
     const c=calc.costPiece(p),pr=calc.priceOf(p);
-    const img=p.imageId?`<img class="thumb big" data-img-id="${p.imageId}" alt="">`:`<div class="thumb big ph"><i>🧵</i></div>`;
+    const img=p.imageUrl?`<img class="thumb big" src="${esc(p.imageUrl)}" alt="">`:(p.imageId?`<img class="thumb big" data-img-id="${p.imageId}" alt="">`:`<div class="thumb big ph"><i>🧵</i></div>`);
     const files=(p.files||[]).map(f=>{const v=f.url?`A.viewUrl('${f.url}','${esc(f.name)}')`:`A.viewFile('${f.id}','${esc(f.name)}')`;const k=f.id||f.url;return `<div class="row between" style="margin:3px 0"><span>📄 ${esc(f.name)}</span><span class="row"><button class="btn ghost sm" onclick="${v}">Ver</button><button class="linkish" onclick="A.prodDelFile('${esc(k)}')">quitar</button></span></div>`;}).join('');
     modal(`<h2>${p.id?'Editar':'Nuevo'} producto</h2>
       <div class="row" style="gap:14px;align-items:flex-start">${img}
@@ -464,14 +464,20 @@
   function dataURLtoBlob(durl){const i=durl.indexOf(',');const head=durl.slice(0,i),b=durl.slice(i+1);const mime=(head.match(/:(.*?);/)||[])[1]||'application/octet-stream';const bin=atob(b);const u=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);return new Blob([u],{type:mime});}
   function delProductsNoFile(){ const sinf=DB.products.filter(p=>!(p.files&&p.files.length)); if(!sinf.length){toast("Todos los productos tienen archivo");return;} if(confirm("¿Eliminar "+sinf.length+" producto(s) sin ningún STL/3MF asociado?")){ DB.products=DB.products.filter(p=>p.files&&p.files.length); save(); render(); toast(sinf.length+" producto(s) eliminados"); } }
   async function addDesigns(){
-    const list=window.AYUNKA_DESIGNS||[]; let added=0;
+    const list=window.AYUNKA_DESIGNS||[]; let added=0,upd=0;
     for(const d of list){
-      if(DB.products.some(p=>p.name===d.name)) continue;
-      const prod={id:window.uid(),name:d.name,material:d.material,grams:d.grams,timeH:d.timeH,colors:d.colors,postMin:d.postMin,packOverride:null,price:null,stock:0,filamentId:null,imageId:null,files:[]};
-      try{ if(d.img) prod.imageId=await IDB.putFile(dataURLtoBlob(d.img),{name:d.name+'.png',kind:'image'}); if(d.stl){ const fid=await IDB.putFile(dataURLtoBlob(d.stl),{name:d.stlName,kind:'stl'}); prod.files.push({id:fid,name:d.stlName}); } if(d.files) d.files.forEach(f=>prod.files.push({name:f.name,url:f.url})); }catch(e){}
-      DB.products.push(prod); added++;
+      let prod=DB.products.find(p=>p.name===d.name);
+      if(prod){
+        if(d.files){ prod.files=d.files.map(f=>({name:f.name,url:f.url})); }
+        if(d.imageUrl){ prod.imageUrl=d.imageUrl; prod.imageId=null; }
+        upd++;
+      } else {
+        prod={id:window.uid(),name:d.name,material:d.material,grams:d.grams,timeH:d.timeH,colors:d.colors,postMin:d.postMin,packOverride:null,price:null,stock:0,filamentId:null,imageId:null,imageUrl:d.imageUrl||null,files:[]};
+        if(d.files) d.files.forEach(f=>prod.files.push({name:f.name,url:f.url}));
+        DB.products.push(prod); added++;
+      }
     }
-    save(); render(); toast(added?('Agregado: '+added+' diseño(s) Ayünka'):'Ya estaban en tu catálogo');
+    save(); render(); toast('Diseños: '+added+' nuevos · '+upd+' actualizados');
   }
 
   /* ---------- ROUTER ---------- */
