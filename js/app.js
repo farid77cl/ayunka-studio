@@ -14,7 +14,7 @@
   function fileToBlobStore(file,kind){return IDB.putFile(file,{name:file.name,type:file.type,kind});}
 
   const TABS=[{id:'inicio',label:'Inicio'},{id:'productos',label:'Productos'},{id:'placas',label:'Placas'},
-    {id:'filamentos',label:'Filamentos'},{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},{id:'pedidos',label:'Producción'},
+    {id:'filamentos',label:'Filamentos'},{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},{id:'pedidos',label:'Producción'},{id:'finanzas',label:'Finanzas'},
     {id:'plan',label:'Planificación'},{id:'ajustes',label:'Ajustes'}];
   function renderTabs(a){$('#tabs').innerHTML=TABS.map(t=>`<button class="tab ${t.id===a?'active':''}" onclick="A.go('${t.id}')">${t.label}</button>`).join('');}
   function go(id){location.hash='#/'+id;$('#tabs').classList.remove('open');}
@@ -28,13 +28,22 @@
     const low=fils.filter(f=>(+f.gramsLeft||0)<150);
     const today=DB.schedule.find(d=>d.jobs.some(j=>j.status!=='listo'))||DB.schedule[0];
     const usedH=today?today.jobs.reduce((a,j)=>a+(+j.hours||0),0):0,cap=DB.params.dayCapacityH;
-    return `<h1 class="page">Hola, Ayünka 🌿</h1><p class="sub">Resumen del taller</p>
+    const mk=thisMonth(); const sM=DB.sales.filter(s=>monthKey(s.fecha)===mk);
+    const ventas=sM.reduce((a,s)=>a+s.total,0), utilB=ventas-sM.reduce((a,s)=>a+(s.costo||0),0);
+    const gastos=(DB.expenses||[]).filter(x=>monthKey(x.fecha)===mk).reduce((a,x)=>a+(+x.monto||0),0), utilN=utilB-gastos;
+    const cnt={}; sM.forEach(s=>s.items.forEach(i=>{cnt[i.name]=(cnt[i.name]||0)+(+i.qty||0);}));
+    const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,3);
+    const t0=new Date(); t0.setHours(0,0,0,0);
+    const due=(DB.orders||[]).filter(o=>o.estado!=='listo'&&o.estado!=='entregado'&&o.fecha).map(o=>({o,d:Math.round((new Date(o.fecha+'T00:00:00')-t0)/86400000)})).filter(x=>x.d<=5).sort((a,b)=>a.d-b.d);
+    return `<h1 class="page">Hola, Ayünka 🌿</h1><p class="sub">Resumen de ${mk}</p>
       <div class="grid cards">
-        <div class="card kpi"><span>Productos</span><b>${prods.length}</b></div>
-        <div class="card kpi"><span>Clientes</span><b>${DB.clients.length}</b></div>
-        <div class="card kpi"><span>Margen promedio</span><b>${pct(avgM)}</b></div>
-        <div class="card kpi"><span>Filamento en stock</span><b>${totalG.toLocaleString('es-CL')} g</b></div>
+        <div class="card kpi"><span>Ventas del mes</span><b>${fmt(ventas)}</b></div>
+        <div class="card kpi"><span>Utilidad neta</span><b style="color:${utilN>=0?'var(--ok)':'var(--coral)'}">${fmt(utilN)}</b></div>
+        <div class="card kpi"><span>Gastos del mes</span><b>${fmt(gastos)}</b></div>
+        <div class="card kpi"><span>Ventas (#)</span><b>${sM.length}</b></div>
       </div>
+      ${top.length?`<div class="sectiontitle">Más vendidos del mes</div><div class="card">${top.map(([n,q])=>`<div class="row between" style="padding:3px 0"><span>${esc(n)}</span><b>${q} u</b></div>`).join('')}</div>`:''}
+      ${due.length?`<div class="sectiontitle">Pedidos por entregar</div><div class="card">${due.map(x=>`<div class="row between" style="padding:3px 0"><span>${esc(x.o.cliente||'Pedido')}</span><span class="pill ${x.d<0?'bad':x.d<=2?'warn':'ok'}">${x.d<0?'atrasado':'en '+x.d+'d'}</span></div>`).join('')}<div class="row" style="margin-top:8px"><button class="linkish" onclick="A.go('pedidos')">Ver producción →</button></div></div>`:''}
       <div class="sectiontitle">Próxima jornada — ${today?esc(today.week+' · '+today.day):''}</div>
       <div class="card">${today?today.jobs.map(j=>`<div class="row between" style="padding:4px 0"><span>${esc(j.name)} ${j.hours?`<span class="tag">${j.hours} h</span>`:''}</span><span class="pill ${j.status==='listo'?'ok':j.status==='imprimiendo'?'warn':'bad'}">${j.status}</span></div>`).join(''):''}
         <div class="muted" style="margin-top:8px">Carga del día: ${usedH.toFixed(1)} h de ${cap} h</div>
@@ -207,7 +216,7 @@
   function vCotiz(){const list=DB.quotes.map(q=>{const tot=q.items.reduce((a,i)=>a+(+i.qty||0)*(+i.unitPrice||0),0)*(q.ivaIncluded?(1+DB.params.iva):1);
       return `<div class="card"><div class="row between"><h3>N° ${esc(q.number)} · ${esc(q.client.name||'Cliente')}</h3><span class="muted">${esc(q.date)}</span></div>
         <div class="muted">${q.items.length} ítem(s)</div><div class="row between" style="margin-top:6px"><b>${fmt(tot)}</b>
-        <span class="row"><button class="btn ghost sm" onclick="A.editQuote('${q.id}')">Editar</button><button class="btn coral sm" onclick="A.pdfQuote('${q.id}')">PDF</button>${q.estado==='aprobada'?'<span class="pill ok">en producción</span>':`<button class="btn primary sm" onclick="A.approveQuote('${q.id}')">✓ Aprobar</button>`}</span></div></div>`;}).join('');
+        <span class="row"><button class="btn ghost sm" onclick="A.editQuote('${q.id}')">Editar</button><button class="btn ghost sm" onclick="A.waQuote('${q.id}')">WhatsApp</button><button class="btn coral sm" onclick="A.pdfQuote('${q.id}')">PDF</button>${q.estado==='aprobada'?'<span class="pill ok">en producción</span>':`<button class="btn primary sm" onclick="A.approveQuote('${q.id}')">✓ Aprobar</button>`}</span></div></div>`;}).join('');
     return `<div class="row between"><h1 class="page">Cotizaciones</h1><button class="btn primary" onclick="A.editQuote()">+ Nueva</button></div>
       <p class="sub">Arma una cotización (productos o ítems libres) y expórtala en PDF</p><div class="grid cards">${list||'<div class="empty">Sin cotizaciones</div>'}</div>`;}
   function editQuote(id){A._quote=id?JSON.parse(JSON.stringify(DB.quotes.find(x=>x.id===id))):{number:String(DB.seq.quote).padStart(4,'0'),date:new Date().toLocaleDateString('es-CL'),clientId:null,client:{name:'',phone:'',email:''},items:[],note:'',ivaIncluded:DB.params.ivaEnQuote,validDays:DB.params.quoteValidDays};renderQuoteModal();}
@@ -397,7 +406,7 @@
       <div class="formgrid" style="margin-top:8px"><label class="field">Cantidad<input id="o-qty" type="number" min="1" value="${o.qty}"></label><label class="field">Horas por unidad<input id="o-h" type="number" step="0.1" value="${o.hoursEach}" placeholder="auto"></label></div>`}
       <div class="formgrid" style="margin-top:8px">
         ${o.tipo!=='stock'?`<label class="field">Fecha de entrega<input id="o-fecha" type="date" value="${o.fecha||''}"></label>`:'<input id="o-fecha" type="hidden" value="">'}
-        <label class="field">Estado<select id="o-estado"><option ${(o.estado||'pendiente')==='pendiente'?'selected':''}>pendiente</option><option ${o.estado==='en producción'?'selected':''}>en producción</option><option ${o.estado==='listo'?'selected':''}>listo</option></select></label>
+        <label class="field">Estado<select id="o-estado"><option ${(o.estado||'pendiente')==='pendiente'?'selected':''}>pendiente</option><option ${o.estado==='en producción'?'selected':''}>en producción</option><option ${o.estado==='listo'?'selected':''}>listo</option>${o.tipo!=='stock'?`<option ${o.estado==='entregado'?'selected':''}>entregado</option>`:''}</select></label>
       </div>
       <div class="row between" style="margin-top:14px"><div>${id?`<button class="linkish" onclick="A.delOrder('${id}')">Eliminar</button>`:''}</div>
         <div class="row"><button class="btn ghost" onclick="A.closeModal()">Cancelar</button><button class="btn primary" onclick="A.saveOrder('${id||''}')">Guardar</button></div></div>`);
@@ -407,15 +416,90 @@
     const o={tipo:g('o-tipo')||'pedido',cliente:g('o-cli').trim(),productId:g('o-prod')||'',productName:g('o-pname').trim(),qty:num(g('o-qty'))||1,hoursEach:g('o-h')===''?'':num(g('o-h')),fecha:g('o-fecha'),estado:g('o-estado')};
     if(o.tipo!=='stock'&&!o.cliente)o.cliente='Cliente';
     if(ex){ o.items=ex.items; o.quoteId=ex.quoteId; Object.assign(ex,o); } else { o.id=window.uid(); o.createdAt=Date.now(); DB.orders.push(o); }
+    const tgt=ex||DB.orders[DB.orders.length-1]; applyOrderStatus(tgt,tgt.estado);
     save();closeModal();render();toast('Guardado'); }
   function delOrder(id){DB.orders=DB.orders.filter(x=>x.id!==id);save();closeModal();render();toast('Eliminado');}
-  function orderCycle(id){const c={'pendiente':'en producción','en producción':'listo','listo':'pendiente'};const o=DB.orders.find(x=>x.id===id);o.estado=c[o.estado||'pendiente'];save();render();}
+  function orderCycle(id){const o=DB.orders.find(x=>x.id===id);const seq=o.tipo==='stock'?['pendiente','en producción','listo']:['pendiente','en producción','listo','entregado'];const i=seq.indexOf(o.estado||'pendiente');o.estado=seq[(i+1)%seq.length];applyOrderStatus(o,o.estado);save();render();}
   function hoursForItem(it){ if(it.productId){const p=DB.products.find(x=>x.id===it.productId);return p?+p.timeH||0:0;} if(it.calc){return (+it.calc.timeH||0)/Math.max(1,+it.calc.unitsPerPlate||1);} return 0; }
   function approveQuote(id){ const q=DB.quotes.find(x=>x.id===id); if(!q) return;
     if((DB.orders||[]).some(o=>o.quoteId===id)){ q.estado='aprobada'; save(); render(); toast('Esta cotización ya está en producción'); return; }
-    const items=q.items.map(it=>({name:it.name,qty:+it.qty||1,hoursEach:hoursForItem(it)}));
+    const items=q.items.map(it=>({name:it.name,qty:+it.qty||1,hoursEach:hoursForItem(it),unitPrice:+it.unitPrice||0,cost:calc.costOfQuoteItem(it),productId:it.productId||null,calc:it.calc||null}));
     DB.orders.push({id:window.uid(),tipo:'pedido',cliente:q.client.name||'Cliente',quoteId:id,items:items,fecha:'',estado:'pendiente',createdAt:Date.now()});
     q.estado='aprobada'; save(); toast('Cotización aprobada → cola de producción'); go('pedidos'); }
+
+  /* ---------- FINANZAS (ventas + gastos) ---------- */
+  function monthKey(t){const d=new Date(t);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+  function thisMonth(){return monthKey(Date.now());}
+  function orderItems(o){
+    if(o.items&&o.items.length) return o.items;
+    const p=o.productId?DB.products.find(x=>x.id===o.productId):null;
+    return [{name:o.productName||(p?p.name:'Producto'),qty:+o.qty||1,productId:o.productId||null,calc:null,unitPrice:p?calc.priceOf(p):0,cost:p?calc.costPiece(p).total:0}];
+  }
+  function deductFilamentItem(it){
+    if(it.productId){ const p=DB.products.find(x=>x.id===it.productId); if(p){ const roll=p.filamentId?DB.filaments.find(f=>f.id===p.filamentId):DB.filaments.find(f=>f.material===p.material&&f.gramsLeft>0); if(roll) roll.gramsLeft=Math.max(0,roll.gramsLeft-(+p.grams||0)*calc.purgeFactor(p.colors)*(+it.qty||0)); } }
+    else if(it.calc){ (it.calc.segments||[]).forEach(s=>{ if(s.filamentId){const f=DB.filaments.find(x=>x.id===s.filamentId); if(f){const N=Math.max(1,+it.calc.unitsPerPlate||1),pl=Math.ceil((+it.qty||0)/N); f.gramsLeft=Math.max(0,f.gramsLeft-(+s.grams||0)*pl);}} }); }
+  }
+  function produceOrder(o){ if(o.producedDone) return; orderItems(o).forEach(it=>{ if(it.productId){const p=DB.products.find(x=>x.id===it.productId); if(p)p.stock=(+p.stock||0)+(+it.qty||0);} deductFilamentItem(it); }); o.producedDone=true; }
+  function registerSaleFromOrder(o){ if(o.saleId) return; const items=orderItems(o).map(it=>({name:it.name,qty:+it.qty||1,unitPrice:+it.unitPrice||0,cost:+it.cost||0,productId:it.productId||null}));
+    const total=items.reduce((a,i)=>a+i.unitPrice*i.qty,0),costo=items.reduce((a,i)=>a+i.cost*i.qty,0);
+    const sale={id:window.uid(),fecha:Date.now(),cliente:o.cliente||'',items,total,costo,utilidad:total-costo,orderId:o.id}; DB.sales.push(sale); o.saleId=sale.id;
+    items.forEach(it=>{ if(it.productId){const p=DB.products.find(x=>x.id===it.productId); if(p)p.stock=(+p.stock||0)-(+it.qty||0);} }); }
+  function applyOrderStatus(o,nv){ if(nv==='listo') produceOrder(o); if(nv==='entregado') registerSaleFromOrder(o); }
+
+  function vFinanzas(){
+    const mk=thisMonth();
+    const sM=DB.sales.filter(s=>monthKey(s.fecha)===mk), eM=(DB.expenses||[]).filter(x=>monthKey(x.fecha)===mk);
+    const ventas=sM.reduce((a,s)=>a+s.total,0), costo=sM.reduce((a,s)=>a+(s.costo||0),0), utilB=ventas-costo, gastos=eM.reduce((a,x)=>a+(+x.monto||0),0), utilN=utilB-gastos;
+    const sAll=DB.sales.slice().sort((a,b)=>b.fecha-a.fecha).slice(0,25), eAll=(DB.expenses||[]).slice().sort((a,b)=>b.fecha-a.fecha).slice(0,25);
+    return `<div class="row between"><h1 class="page">Finanzas</h1><div class="row"><button class="btn ghost" onclick="A.openGasto()">+ Gasto</button><button class="btn primary" onclick="A.openVenta()">+ Venta</button></div></div>
+      <p class="sub">Resumen de ${mk}</p>
+      <div class="grid cards">
+        <div class="card kpi"><span>Ventas del mes</span><b>${fmt(ventas)}</b></div>
+        <div class="card kpi"><span>Utilidad bruta</span><b style="color:var(--ok)">${fmt(utilB)}</b></div>
+        <div class="card kpi"><span>Gastos del mes</span><b style="color:var(--coral)">${fmt(gastos)}</b></div>
+        <div class="card kpi"><span>Utilidad neta</span><b style="color:${utilN>=0?'var(--ok)':'var(--coral)'}">${fmt(utilN)}</b></div>
+      </div>
+      <div class="sectiontitle">Ventas recientes</div>
+      <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th class="num">Total</th><th class="num">Utilidad</th><th></th></tr></thead><tbody>${sAll.map(s=>`<tr><td>${new Date(s.fecha).toLocaleDateString('es-CL')}</td><td>${esc(s.cliente||'-')}<div class="muted">${esc(s.items.map(i=>i.name+'×'+i.qty).join(', ')).slice(0,52)}</div></td><td class="num">${fmt(s.total)}</td><td class="num"><span class="pill ok">${fmt(s.utilidad)}</span></td><td class="num"><button class="linkish" onclick="A.delVenta('${s.id}')">x</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Sin ventas aún</td></tr>'}</tbody></table></div>
+      <div class="sectiontitle">Gastos recientes</div>
+      <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th class="num">Monto</th><th></th></tr></thead><tbody>${eAll.map(e=>`<tr><td>${new Date(e.fecha).toLocaleDateString('es-CL')}</td><td>${esc(e.categoria)}</td><td>${esc(e.desc||'')}</td><td class="num">${fmt(e.monto)}</td><td class="num"><button class="linkish" onclick="A.openGasto('${e.id}')">✎</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Sin gastos aún</td></tr>'}</tbody></table></div>`;
+  }
+  function openVenta(){ A._venta={cliente:'',fecha:new Date().toISOString().slice(0,10),items:[]}; renderVentaModal(); }
+  function renderVentaModal(){ const v=A._venta;
+    const prodOpts='<option value="">+ producto…</option>'+DB.products.map(p=>`<option value="${p.id}">${esc(p.name)} (${fmt(calc.priceOf(p))})</option>`).join('');
+    const rows=v.items.map((it,i)=>`<div class="row" style="margin:3px 0;gap:6px"><input value="${esc(it.name)}" style="flex:1" onchange="A.vItem(${i},'name',this.value)"><input type="number" min="1" value="${it.qty}" style="width:54px" onchange="A.vItem(${i},'qty',this.value)"><input type="number" value="${it.unitPrice}" style="width:90px" onchange="A.vItem(${i},'unitPrice',this.value)"><button class="linkish" onclick="A.vDel(${i})">x</button></div>`).join('');
+    const total=v.items.reduce((a,i)=>a+(+i.qty||0)*(+i.unitPrice||0),0);
+    modal(`<h2>Venta rápida</h2>
+      <div class="formgrid"><label class="field">Cliente<input id="v-cli" list="v-clilist" value="${esc(v.cliente)}" oninput="A._venta.cliente=this.value"><datalist id="v-clilist">${DB.clients.map(c=>`<option value="${esc(c.name)}">`).join('')}</datalist></label><label class="field">Fecha<input type="date" value="${v.fecha}" oninput="A._venta.fecha=this.value"></label></div>
+      <div class="sectiontitle">Ítems</div>${rows||'<div class="muted">Agrega productos vendidos</div>'}
+      <div class="row" style="margin-top:6px"><select onchange="A.vAdd(this.value)" style="flex:1">${prodOpts}</select><button class="btn ghost sm" onclick="A.vAddFree()">+ libre</button></div>
+      <div class="row between" style="margin-top:10px"><span>Total</span><b id="v-tot" style="font-size:18px">${fmt(total)}</b></div>
+      <div class="row between" style="margin-top:12px"><button class="btn ghost" onclick="A.closeModal()">Cancelar</button><button class="btn primary" onclick="A.saveVenta()">Registrar venta</button></div>`);
+  }
+  function vAdd(pid){if(!pid)return;const p=DB.products.find(x=>x.id===pid);A._venta.items.push({productId:p.id,name:p.name,qty:1,unitPrice:calc.priceOf(p),cost:calc.costPiece(p).total});renderVentaModal();}
+  function vAddFree(){A._venta.items.push({productId:null,name:'',qty:1,unitPrice:0,cost:0});renderVentaModal();}
+  function vItem(i,k,val){A._venta.items[i][k]=(k==='name')?val:num(val);const e=$('#v-tot');if(e)e.textContent=fmt(A._venta.items.reduce((a,it)=>a+(+it.qty||0)*(+it.unitPrice||0),0));}
+  function vDel(i){A._venta.items.splice(i,1);renderVentaModal();}
+  function saveVenta(){const v=A._venta;if(!v.items.length){toast('Agrega al menos un ítem');return;}const items=v.items.map(it=>({name:it.name||'Ítem',qty:+it.qty||1,unitPrice:+it.unitPrice||0,cost:+it.cost||0,productId:it.productId||null}));
+    const total=items.reduce((a,i)=>a+i.unitPrice*i.qty,0),costo=items.reduce((a,i)=>a+i.cost*i.qty,0),ts=v.fecha?new Date(v.fecha+'T12:00:00').getTime():Date.now();
+    DB.sales.push({id:window.uid(),fecha:ts,cliente:v.cliente,items,total,costo,utilidad:total-costo});
+    items.forEach(it=>{if(it.productId){const p=DB.products.find(x=>x.id===it.productId);if(p)p.stock=(+p.stock||0)-(+it.qty||0);}});
+    if(v.cliente)upsertClient({name:v.cliente}); save();closeModal();render();toast('Venta registrada');}
+  function delVenta(id){const s=DB.sales.find(x=>x.id===id);if(!s)return;if(confirm('¿Eliminar esta venta?')){s.items.forEach(it=>{if(it.productId){const p=DB.products.find(x=>x.id===it.productId);if(p)p.stock=(+p.stock||0)+(+it.qty||0);}});DB.sales=DB.sales.filter(x=>x.id!==id);save();render();toast('Venta eliminada');}}
+  function openGasto(id){const e=id?JSON.parse(JSON.stringify((DB.expenses||[]).find(x=>x.id===id))):{fecha:Date.now(),categoria:'Filamento',desc:'',monto:''};const fv=new Date(e.fecha||Date.now()).toISOString().slice(0,10);
+    modal(`<h2>${id?'Editar':'Nuevo'} gasto</h2><div class="formgrid">
+      <label class="field">Fecha<input id="g-fecha" type="date" value="${fv}"></label>
+      <label class="field">Categoría<select id="g-cat">${['Filamento','Insumos','Empaque','Máquina','Marketing','Otros'].map(c=>`<option ${e.categoria===c?'selected':''}>${c}</option>`).join('')}</select></label>
+      <label class="field" style="grid-column:1/3">Descripción<input id="g-desc" value="${esc(e.desc||'')}"></label>
+      <label class="field">Monto (CLP)<input id="g-monto" type="number" value="${e.monto}"></label></div>
+      <div class="row between" style="margin-top:14px"><div>${id?`<button class="linkish" onclick="A.delGasto('${id}')">Eliminar</button>`:''}</div><div class="row"><button class="btn ghost" onclick="A.closeModal()">Cancelar</button><button class="btn primary" onclick="A.saveGasto('${id||''}')">Guardar</button></div></div>`);}
+  function saveGasto(id){const o={fecha:new Date($('#g-fecha').value+'T12:00:00').getTime(),categoria:$('#g-cat').value,desc:$('#g-desc').value.trim(),monto:num($('#g-monto').value)};if(id){Object.assign((DB.expenses||[]).find(x=>x.id===id),o);}else{o.id=window.uid();DB.expenses.push(o);}save();closeModal();render();toast('Gasto guardado');}
+  function delGasto(id){DB.expenses=DB.expenses.filter(x=>x.id!==id);save();closeModal();render();toast('Gasto eliminado');}
+  function waQuote(id){const q=DB.quotes.find(x=>x.id===id);if(!q)return;let ph=(q.client.phone||'').replace(/\D/g,'');if(ph&&ph.length<=9)ph='56'+ph;
+    const net=q.items.reduce((a,i)=>a+(+i.qty||0)*(+i.unitPrice||0),0),tot=net*(q.ivaIncluded?(1+DB.params.iva):1);
+    const lines=q.items.map(i=>'• '+i.name+' x'+i.qty+': '+fmt((+i.qty||0)*(+i.unitPrice||0))).join('\n');
+    const msg='Hola '+(q.client.name||'')+'! Cotización N°'+q.number+' de '+DB.params.business.name+':\n'+lines+'\n*Total: '+fmt(tot)+'*\n'+Math.round((DB.params.abonoPct||0.5)*100)+'% de abono para iniciar, saldo contra entrega.';
+    window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');}
 
   /* ---------- AJUSTES ---------- */
   function vAjustes(){const p=DB.params,b=p.business;const f=(id,lbl,val,step)=>`<label class="field">${lbl}<input id="${id}" type="number" ${step?`step="${step}"`:''} value="${val}"></label>`;const bks=(window.listBackups?window.listBackups():[]).slice().reverse();
@@ -481,7 +565,7 @@
   }
 
   /* ---------- ROUTER ---------- */
-  const VIEWS={inicio:vInicio,productos:vProductos,placas:vPlacas,filamentos:vFilamentos,clientes:vClientes,cotizaciones:vCotiz,pedidos:vPedidos,plan:vPlan,ajustes:vAjustes};
+  const VIEWS={inicio:vInicio,productos:vProductos,placas:vPlacas,filamentos:vFilamentos,clientes:vClientes,cotizaciones:vCotiz,pedidos:vPedidos,finanzas:vFinanzas,plan:vPlan,ajustes:vAjustes};
   function render(){let id=(location.hash.replace('#/','')||'inicio');if(!VIEWS[id])id='inicio';renderTabs(id);$('#view').innerHTML=VIEWS[id]();hydrate();window.scrollTo(0,0);}
   window.addEventListener('hashchange',render);
   $('#menuBtn').addEventListener('click',()=>$('#tabs').classList.toggle('open'));
@@ -491,7 +575,7 @@
     editFil,saveFil,delFil,filAuto,editPlate,renderPlateModal,plateAdd,plateQty,plateDel,plateRefresh,savePlate,delPlate,printPlate,
     editClient,saveClient,delClient,quoteForClient,
     editQuote,renderQuoteModal,qPickClient,qEditItem,qSaveItem,qToCalc,qCalcOpen,qCalcEdit,renderCalcModal,qcSeg,qcSegAdd,qcSegDel,qcTime,qcRefresh,qcPrice,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
-    planSync,editOrder,orderProd,saveOrder,delOrder,orderCycle,approveQuote,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,syncSave,syncOff,_syncNote,restoreBk,expData,impData,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null};
+    planSync,editOrder,orderProd,saveOrder,delOrder,orderCycle,approveQuote,waQuote,openVenta,renderVentaModal,vAdd,vAddFree,vItem,vDel,saveVenta,delVenta,openGasto,saveGasto,delGasto,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,syncSave,syncOff,_syncNote,restoreBk,expData,impData,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null,_venta:null};
 
   window.__render=render;
   try{ window.__syncCfgRaw = JSON.stringify((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'null')||{}).firebase||'',null,0); }catch(e){}
