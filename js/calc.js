@@ -10,7 +10,13 @@
   }
   function costPiece(prod){
     const grams=+prod.grams||0, h=+prod.timeH||0, colors=+prod.colors||1;
-    const plastico=grams*purgeFactor(colors)/1000*kgPriceFor(prod);
+    let plastico;
+    if(prod.segments&&prod.segments.length&&colors>=2){
+      let cost=0; prod.segments.forEach(seg=>{ cost+=(+seg.grams||0)/1000*kgPrice(seg.filamentId,prod.material); });
+      plastico=purgeFactor(colors)*cost;
+    } else {
+      plastico=grams*purgeFactor(colors)/1000*kgPriceFor(prod);
+    }
     const electricidad=h*elecPerH();
     const prep=(P().prepMin||0), post=(+prod.postMin||0);
     const operario=(prep+post)/60*P().laborH;

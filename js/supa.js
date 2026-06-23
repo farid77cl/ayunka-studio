@@ -22,5 +22,7 @@
     const {data}=cl.storage.from(c.bucket).getPublicUrl(path);
     return data.publicUrl;
   }
-  window.Supa={configured,setCfg,clearCfg,upload};
+  function pathFromUrl(url){ const m=String(url||'').match(/\/object\/public\/[^/]+\/(.+)$/); return m?decodeURIComponent(m[1].split('?')[0]):null; }
+  async function removeUrl(url){ const c=cfg(); const path=pathFromUrl(url); if(!path) return false; const cl=await client(); const {error}=await cl.storage.from(c.bucket).remove([path]); if(error) throw error; return true; }
+  window.Supa={configured,setCfg,clearCfg,upload,removeUrl};
 })();

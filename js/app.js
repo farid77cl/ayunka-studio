@@ -73,6 +73,7 @@
   }
   function renderProductModal(){
     const p=A._prod;
+    if(+p.colors>=2){ p.segments=p.segments||[]; while(p.segments.length<+p.colors) p.segments.push({filamentId:p.filamentId||null,grams:''}); p.segments.length=+p.colors; }
     const filOpts=`<option value="">— precio material por defecto —</option>`+DB.filaments.map(f=>`<option value="${f.id}" ${p.filamentId===f.id?'selected':''}>${esc(f.color)} · ${esc(f.marca)} (${fmt(f.rollPrice/f.rollGrams*1000)}/kg)</option>`).join('');
     const c=calc.costPiece(p),pr=calc.priceOf(p);
     const img=p.imageUrl?`<img class="thumb big" src="${esc(p.imageUrl)}" alt="">`:(p.imageId?`<img class="thumb big" data-img-id="${p.imageId}" alt="">`:`<div class="thumb big ph"><i>🧵</i></div>`);
@@ -80,18 +81,21 @@
     modal(`<h2>${p.id?'Editar':'Nuevo'} producto</h2>
       <div class="row" style="gap:14px;align-items:flex-start">${img}
         <div style="flex:1"><label class="field">Nombre<input id="f-name" value="${esc(p.name)}" oninput="A._prod.name=this.value"></label>
-        <label class="field" style="margin-top:8px">Foto del producto<input type="file" accept="image/*" onchange="A.prodImg(this)"></label></div></div>
+        <label class="field" style="margin-top:8px">Foto del producto<input type="file" accept="image/*" onchange="A.prodImg(this)"></label>${(p.imageUrl||p.imageId)?`<button class="linkish" style="margin-top:6px" onclick="A.prodDelImg()">🗑️ Quitar foto</button>`:''}</div></div>
       <div class="formgrid" style="margin-top:10px">
         <label class="field">Material<select id="f-mat" onchange="A._prod.material=this.value;A.prodRefresh()">${matOptions(p.material)}</select></label>
         <label class="field">Filamento (marca/precio)<select id="f-fil" onchange="A._prod.filamentId=this.value||null;A.prodRefresh()">${filOpts}</select></label>
-        <label class="field">Peso (g)<input id="f-grams" type="number" value="${p.grams}" oninput="A._prod.grams=this.value;A.prodRefresh()"></label>
+        <label class="field">Peso (g)${(+p.colors>=2)?' <span class=\'muted\'>(suma de colores)</span>':''}<input id="f-grams" type="number" ${(+p.colors>=2)?'readonly':''} value="${p.grams}" oninput="A._prod.grams=this.value;A.prodRefresh()"></label>
         <label class="field">Tiempo impresión<div class="row" style="gap:6px"><input id="f-th" type="number" min="0" value="${Math.floor((+p.timeH||0)+1e-9)}" oninput="A.prodTime()" style="width:62px"><span class="muted">h</span><input id="f-tm" type="number" min="0" max="59" value="${Math.round((((+p.timeH||0)%1))*60)}" oninput="A.prodTime()" style="width:62px"><span class="muted">min</span></div></label>
-        <label class="field">N° de colores<input id="f-colors" type="number" min="1" value="${p.colors}" oninput="A._prod.colors=this.value;A.prodRefresh()"></label>
+        <label class="field">N° de colores<input id="f-colors" type="number" min="1" value="${p.colors}" onchange="A.prodColors(this.value)"></label>
         <label class="field">Postproducción (min)<input id="f-post" type="number" value="${p.postMin}" oninput="A._prod.postMin=this.value;A.prodRefresh()"></label>
         <label class="field">Stock actual (u)<input id="f-stock" type="number" value="${p.stock||0}" oninput="A._prod.stock=+this.value"></label>
         <label class="field">Empaque (CLP, opcional)<input id="f-pack" type="number" value="${p.packOverride??''}" placeholder="por defecto" oninput="A._prod.packOverride=this.value===''?null:+this.value;A.prodRefresh()"></label>
         <label class="field">Precio manual (CLP, opcional)<input id="f-price" type="number" value="${p.price??''}" placeholder="vacío = sugerido" oninput="A._prod.price=this.value===''?null:+this.value;A.prodRefresh()"></label>
       </div>
+      ${(+p.colors>=2)?`<div class="sectiontitle">Colores y filamento por color</div>
+      <div id="seg-list">${segRows(p)}</div>
+      <div class="muted" style="margin-top:4px">Elige el filamento de cada color y cuántos gramos usa. El peso total se suma solo.</div>`:''}
       <div class="sectiontitle">Archivos STL / 3MF <span class="muted">(uno o varios)</span></div>
       ${files||'<div class="muted">Sin archivos asociados</div>'}
       <label class="field" style="margin-top:6px">Agregar archivo(s)<input type="file" multiple accept=".stl,.3mf,.obj,.gcode,.step,.stp,.amf" onchange="A.prodAddFiles(this)"></label>
@@ -100,6 +104,14 @@
       <div class="row between"><div>${p.id?`<button class="linkish" onclick="A.delProduct('${p.id}')">Eliminar</button>`:''}</div>
         <div class="row"><button class="btn ghost" onclick="A.closeModal()">Cancelar</button><button class="btn primary" onclick="A.saveProduct()">Guardar</button></div></div>`);
   }
+  function segRows(p){
+    return (p.segments||[]).map((seg,i)=>{
+      const opts=`<option value="">— precio ${esc(p.material)} por defecto —</option>`+DB.filaments.map(f=>`<option value="${f.id}" ${seg.filamentId===f.id?'selected':''}>${esc(f.color)} · ${esc(f.marca)}</option>`).join('');
+      return `<div class="row" style="gap:8px;margin:4px 0;align-items:center"><span class="muted" style="width:58px">Color ${i+1}</span><select style="flex:1" onchange="A.pSeg(${i},'filamentId',this.value)">${opts}</select><input type="number" min="0" placeholder="g" style="width:84px" value="${seg.grams}" oninput="A.pSeg(${i},'grams',this.value)"><span class="muted">g</span></div>`;
+    }).join('');
+  }
+  function pSeg(i,field,val){const p=A._prod;if(!p.segments)p.segments=[];if(!p.segments[i])p.segments[i]={};p.segments[i][field]=field==='grams'?val:(val||null);if(+p.colors>=2){p.grams=p.segments.reduce((a,seg)=>a+(+seg.grams||0),0);const g=document.getElementById('f-grams');if(g)g.value=p.grams;}prodRefresh();}
+  function prodColors(v){const p=A._prod;p.colors=Math.max(1,+v||1);if(+p.colors>=2){p.segments=p.segments||[];while(p.segments.length<+p.colors)p.segments.push({filamentId:p.filamentId||null,grams:''});p.segments.length=+p.colors;p.grams=p.segments.reduce((a,seg)=>a+(+seg.grams||0),0);}renderProductModal();}
   function prodTime(){A._prod.timeH=calc.toHours(document.getElementById('f-th').value,document.getElementById('f-tm').value);prodRefresh();}
   function prodRefresh(){const p=A._prod,c=calc.costPiece(p),pr=calc.priceOf(p);const s=(i,v)=>{const e=document.getElementById(i);if(e)e.innerHTML=v;};s('pp-tot',fmt(c.total));s('pp-pr',fmt(pr));s('pp-mg',pct(calc.marginPct(pr,c.total)));}
   function prodImg(inp){const f=inp.files[0];if(!f)return;const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{const cloud=window.Supa&&window.Supa.configured();const max=cloud?900:440;let w=img.width,h=img.height;if(w>h){if(w>max){h=Math.round(h*max/w);w=max;}}else{if(h>max){w=Math.round(w*max/h);h=max;}}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
@@ -110,7 +122,8 @@
   function prodOpenFile(fid){IDB.openFile(fid).then(ok=>{if(!ok)toast('Archivo no encontrado');});}
   function viewUrl(url,name){ window.STLViewer.openUrl(url,name); }
   async function viewFile(fid,name){ try{ const f=await IDB.getFile(fid); if(!f){toast('Archivo local: se subió en otro dispositivo. Para verlo en todos lados, usa el catálogo «+ Diseños Ayünka».');return;} window.STLViewer.open(f.blob,name||f.name); }catch(e){ toast('No se pudo abrir el visor'); } }
-  async function prodDelFile(key){const f=(A._prod.files||[]).find(x=>(x.id||x.url)===key);if(f&&f.id)await IDB.delFile(f.id);A._prod.files=A._prod.files.filter(x=>(x.id||x.url)!==key);renderProductModal();}
+  async function prodDelImg(){const p=A._prod;if(!p.imageUrl&&!p.imageId)return;if(!confirm('¿Quitar la foto de este producto?'))return;try{if(p.imageId){await IDB.delFile(p.imageId);}if(p.imageUrl&&window.Supa&&window.Supa.configured()&&/supabase\.co/.test(p.imageUrl)&&!/\/catalogo\//.test(p.imageUrl)){window.Supa.removeUrl(p.imageUrl).catch(()=>{});}}catch(e){}p.imageUrl=null;p.imageId=null;renderProductModal();toast('Foto quitada');}
+  async function prodDelFile(key){const f=(A._prod.files||[]).find(x=>(x.id||x.url)===key);if(f&&f.id)await IDB.delFile(f.id);if(f&&f.url&&window.Supa&&window.Supa.configured()&&/supabase\.co/.test(f.url)&&!/\/catalogo\//.test(f.url)){window.Supa.removeUrl(f.url).catch(()=>{});}A._prod.files=A._prod.files.filter(x=>(x.id||x.url)!==key);renderProductModal();}
   function saveProduct(){const p=A._prod;p.name=( $('#f-name').value||'Pieza').trim();p.grams=num(p.grams);p.timeH=num(p.timeH);p.colors=num(p.colors)||1;p.postMin=num(p.postMin);
     if(p.id){Object.assign(DB.products.find(x=>x.id===p.id),p);}else{p.id=window.uid();p.stock=0;DB.products.push(p);}save();closeModal();render();toast('Producto guardado');}
   function delProduct(id){DB.products=DB.products.filter(x=>x.id!==id);save();closeModal();render();toast('Producto eliminado');}
@@ -559,15 +572,30 @@
 
   function dataURLtoBlob(durl){const i=durl.indexOf(',');const head=durl.slice(0,i),b=durl.slice(i+1);const mime=(head.match(/:(.*?);/)||[])[1]||'application/octet-stream';const bin=atob(b);const u=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);return new Blob([u],{type:mime});}
   function delProductsNoFile(){ const sinf=DB.products.filter(p=>!(p.files&&p.files.length)); if(!sinf.length){toast("Todos los productos tienen archivo");return;} if(confirm("¿Eliminar "+sinf.length+" producto(s) sin ningún STL/3MF asociado?")){ DB.products=DB.products.filter(p=>p.files&&p.files.length); save(); render(); toast(sinf.length+" producto(s) eliminados"); } }
+  function mergeDesign(prod,d){
+    let changed=false;
+    if(d.files&&d.files.length){
+      const canonical=d.files.map(f=>({name:f.name,url:f.url}));
+      const keep=(prod.files||[]).filter(f=> f.id || (f.url&&/supabase\.co/.test(f.url)&&!/\/catalogo\//.test(f.url)));
+      const merged=canonical.concat(keep.filter(k=>!canonical.some(c=>c.name===k.name)));
+      if(JSON.stringify(merged)!==JSON.stringify(prod.files||[])){ prod.files=merged; changed=true; }
+    }
+    if(d.imageUrl){ if(!prod.imageUrl || /^models\//.test(prod.imageUrl||'')){ prod.imageUrl=d.imageUrl; prod.imageId=null; changed=true; } }
+    return changed;
+  }
+  function normalizeDesigns(){
+    const list=window.AYUNKA_DESIGNS||[]; let fixed=0;
+    for(const d of list){ const prod=DB.products.find(p=>p.name===d.name); if(prod&&mergeDesign(prod,d)) fixed++; }
+    if(fixed) save();
+    return fixed;
+  }
+  window.__normalizeDesigns=normalizeDesigns;
   async function addDesigns(){
     const list=window.AYUNKA_DESIGNS||[]; let added=0,upd=0;
     for(const d of list){
       let prod=DB.products.find(p=>p.name===d.name);
-      if(prod){
-        if(d.files){ prod.files=d.files.map(f=>({name:f.name,url:f.url})); }
-        if(d.imageUrl){ prod.imageUrl=d.imageUrl; prod.imageId=null; }
-        upd++;
-      } else {
+      if(prod){ if(mergeDesign(prod,d)) upd++; }
+      else {
         prod={id:window.uid(),name:d.name,material:d.material,grams:d.grams,timeH:d.timeH,colors:d.colors,postMin:d.postMin,packOverride:null,price:null,stock:0,filamentId:null,imageId:null,imageUrl:d.imageUrl||null,files:[]};
         if(d.files) d.files.forEach(f=>prod.files.push({name:f.name,url:f.url}));
         DB.products.push(prod); added++;
@@ -583,7 +611,7 @@
   $('#menuBtn').addEventListener('click',()=>$('#tabs').classList.toggle('open'));
 
   window.A={go,closeModal,
-    addDesigns,delProductsNoFile,editProduct,renderProductModal,prodRefresh,prodTime,prodImg,prodAddFiles,prodOpenFile,viewFile,viewUrl,prodDelFile,saveProduct,delProduct,
+    addDesigns,delProductsNoFile,editProduct,renderProductModal,prodRefresh,prodTime,prodImg,prodAddFiles,prodOpenFile,viewFile,viewUrl,prodDelFile,prodDelImg,segRows,pSeg,prodColors,saveProduct,delProduct,
     editFil,saveFil,delFil,filAuto,editPlate,renderPlateModal,plateAdd,plateQty,plateDel,plateRefresh,savePlate,delPlate,printPlate,
     editClient,saveClient,delClient,quoteForClient,
     editQuote,renderQuoteModal,qPickClient,qEditItem,qSaveItem,qToCalc,qCalcOpen,qCalcEdit,renderCalcModal,qcSeg,qcSegAdd,qcSegDel,qcTime,qcRefresh,qcPrice,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
@@ -593,5 +621,6 @@
   try{ window.__syncCfgRaw = JSON.stringify((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'null')||{}).firebase||(window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.firebase)||'',null,0); }catch(e){}
   if(window.Sync&&window.Sync.configured()){ window.Sync.init(); }
   if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+  try{ normalizeDesigns(); }catch(e){}
   render();
 })();

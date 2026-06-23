@@ -15,6 +15,7 @@
     for(const k in data.db){ window.DB[k]=data.db[k]; }
     window.DB._updatedAt=data.updatedAt||Date.now(); window.DB._seed=false;
     try{ localStorage.setItem(DBKEY,JSON.stringify(window.DB)); }catch(e){}
+    try{ if(window.__normalizeDesigns) window.__normalizeDesigns(); }catch(e){}
     if(window.__render) window.__render();
     st.applying=false;
   }
