@@ -2,7 +2,7 @@
 (function(){
   const CKEY='ayunka-supa-cfg';
   let _client=null;
-  function cfg(){ try{return JSON.parse(localStorage.getItem(CKEY));}catch(e){return null;} }
+  function cfg(){ try{const c=JSON.parse(localStorage.getItem(CKEY)); if(c&&c.url&&c.key) return c;}catch(e){} return (window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.supabase)||null; }
   function configured(){ const c=cfg(); return !!(c&&c.url&&c.key&&c.bucket); }
   function normUrl(u){ return (u||'').trim().replace(/\/+$/,'').replace(/\/rest\/v1$/,'').replace(/\/+$/,''); }
   function setCfg(url,key,bucket){ localStorage.setItem(CKEY,JSON.stringify({url:normUrl(url),key:(key||'').trim(),bucket:(bucket||'archivos').trim()})); _client=null; }

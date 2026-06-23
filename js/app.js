@@ -529,17 +529,17 @@
         <div class="muted" style="margin-top:8px">Tus datos viven en este dispositivo. Las fotos y STL se guardan aparte (no se incluyen en el respaldo JSON).</div></div>
       <div class="card" style="margin-top:14px"><div class="sectiontitle" style="margin-top:0">Sincronización en la nube (celular ⇄ PC)</div>
         <div class="muted" id="sync-status">Estado: ${window.Sync&&window.Sync.configured()?(window.Sync.isOn()?'conectada':'configurada'):'desactivada'}</div>
-        <label class="field" style="margin-top:8px">Config de Firebase (pega el objeto firebaseConfig)<textarea id="sync-cfg" style="min-height:96px" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "appId": "..." }'>${esc(window.__syncCfgRaw||'')}</textarea></label>
+        <label class="field" style="margin-top:8px">Config de Firebase (pega el objeto firebaseConfig)<textarea id="sync-cfg" style="min-height:96px" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "appId": "..." }'>${esc(window.__syncCfgRaw||(window.AYUNKA_CONFIG?JSON.stringify(window.AYUNKA_CONFIG.firebase):''))}</textarea></label>
         <label class="field" style="margin-top:6px">Nombre del espacio (workspace)<input id="sync-ws" value="${esc((window.Sync&&JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'{}').workspace)||'ayunka')}"></label>
-        <div class="formgrid" style="margin-top:6px"><label class="field">Tu email (login de sync)<input id="sync-email" type="email" value="${esc((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'{}').email)||'')}" placeholder="tucorreo@ejemplo.com"></label>
+        <div class="formgrid" style="margin-top:6px"><label class="field">Tu email (login de sync)<input id="sync-email" type="email" value="${esc((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'{}').email)||(window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.syncEmail)||'')}" placeholder="tucorreo@ejemplo.com"></label>
         <label class="field">Contraseña de sync<input id="sync-pass" type="password" value="${esc((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'{}').password)||'')}" placeholder="elige una clave"></label></div>
         <div class="row" style="margin-top:10px"><button class="btn primary sm" onclick="A.syncSave()">Activar / guardar</button><button class="btn ghost sm" onclick="A.syncOff()">Desactivar</button></div>
         <div class="muted" style="margin-top:8px">Crea un proyecto gratis en Firebase, activa Firestore y Autenticación por Email/Contraseña, pega el firebaseConfig y usa el MISMO email y contraseña en el celular y el PC. Aplica las reglas de seguridad (archivo firestore.rules) para que solo tú accedas. La app debe estar publicada en https. Las fotos se guardan con los datos; para que los STL subidos también se vean en todos lados, configura Supabase abajo.</div></div>
       <div class="card" style="margin-top:14px"><div class="sectiontitle" style="margin-top:0">Almacenamiento de archivos en la nube (Supabase)</div>
         <div class="muted" id="supa-status">Estado: ${(window.Supa&&window.Supa.configured())?'configurado ✓':'desactivado'}</div>
-        <label class="field" style="margin-top:8px">URL del proyecto<input id="supa-url" value="${esc((JSON.parse(localStorage.getItem('ayunka-supa-cfg')||'{}').url)||'')}" placeholder="https://xxxx.supabase.co"></label>
-        <label class="field" style="margin-top:6px">Clave anónima (anon public)<input id="supa-key" value="${esc((JSON.parse(localStorage.getItem('ayunka-supa-cfg')||'{}').key)||'')}" placeholder="eyJhbGci..."></label>
-        <label class="field" style="margin-top:6px">Bucket<input id="supa-bucket" value="${esc((JSON.parse(localStorage.getItem('ayunka-supa-cfg')||'{}').bucket)||'archivos')}"></label>
+        <label class="field" style="margin-top:8px">URL del proyecto<input id="supa-url" value="${esc((JSON.parse(localStorage.getItem('ayunka-supa-cfg')||'{}').url)||(window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.supabase&&window.AYUNKA_CONFIG.supabase.url)||'')}" placeholder="https://xxxx.supabase.co"></label>
+        <label class="field" style="margin-top:6px">Clave anónima (anon public)<input id="supa-key" value="${esc((JSON.parse(localStorage.getItem('ayunka-supa-cfg')||'{}').key)||(window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.supabase&&window.AYUNKA_CONFIG.supabase.key)||'')}" placeholder="eyJhbGci..."></label>
+        <label class="field" style="margin-top:6px">Bucket<input id="supa-bucket" value="${esc((JSON.parse(localStorage.getItem('ayunka-supa-cfg')||'{}').bucket)||(window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.supabase&&window.AYUNKA_CONFIG.supabase.bucket)||'archivos')}"></label>
         <div class="row" style="margin-top:10px"><button class="btn primary sm" onclick="A.saveSupa()">Activar / guardar</button><button class="btn ghost sm" onclick="A.supaOff()">Desactivar</button></div>
         <div class="muted" style="margin-top:8px">Crea un proyecto gratis en supabase.com → Storage → bucket PÚBLICO llamado "archivos" → pega aquí la URL y la clave anónima. Desde ahí, las fotos y STL que subas van a la nube y se ven en PC y celular.</div></div>
       <div class="card" style="margin-top:14px"><div class="sectiontitle" style="margin-top:0">Copias de seguridad automáticas (este dispositivo)</div>
@@ -590,7 +590,7 @@
     planSync,editOrder,orderProd,saveOrder,delOrder,orderCycle,approveQuote,waQuote,openVenta,renderVentaModal,vAdd,vAddFree,vItem,vDel,saveVenta,delVenta,openGasto,saveGasto,delGasto,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,saveSupa,supaOff,syncSave,syncOff,_syncNote,restoreBk,expData,impData,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null,_venta:null};
 
   window.__render=render;
-  try{ window.__syncCfgRaw = JSON.stringify((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'null')||{}).firebase||'',null,0); }catch(e){}
+  try{ window.__syncCfgRaw = JSON.stringify((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'null')||{}).firebase||(window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.firebase)||'',null,0); }catch(e){}
   if(window.Sync&&window.Sync.configured()){ window.Sync.init(); }
   if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
   render();
