@@ -41,15 +41,15 @@
   function kgPrice(filamentId,material){ if(filamentId){const f=(window.DB.filaments||[]).find(x=>x.id===filamentId); if(f&&f.rollGrams) return f.rollPrice/f.rollGrams*1000;} return material==='PETG'?P().petgPrice:P().plaPrice; }
   function costCustom(o){
     const N=Math.max(1,+o.unitsPerPlate||1);
-    let unitFil=0; (o.segments||[]).forEach(s=>{ unitFil += (+s.grams||0)/1000*kgPrice(s.filamentId,s.material||'PLA'); });
-    const plastico=unitFil*N;                          // filamento de las N unidades de la placa
-    const electricidad=(+o.timeH||0)*elecPerH();       // tiempo = el de la placa completa (compartido)
+    // gramos y tiempo se ingresan TOTALES de la placa (las N unidades juntas), como los entrega el slicer
+    let plastico=0; (o.segments||[]).forEach(s=>{ plastico += (+s.grams||0)/1000*kgPrice(s.filamentId,s.material||'PLA'); });
+    const electricidad=(+o.timeH||0)*elecPerH();       // tiempo de la placa completa
     const amortizacion=(+o.timeH||0)*amortPerH();
-    const operario=((P().prepMin||0)+N*(+o.postMin||0))/60*P().laborH; // preparación 1 vez + post por unidad
+    const operario=((P().prepMin||0)+N*(+o.postMin||0))/60*P().laborH; // preparación 1 vez por placa + post por unidad
     const empaque=N*(o.empaque!=null?+o.empaque:P().pack);
     const basePlate=plastico+electricidad+operario+amortizacion+empaque;
     const fallosPlate=basePlate*P().failRate, totalPlate=basePlate+fallosPlate;
-    // devuelve valores POR UNIDAD (placa / N)
+    // valores POR UNIDAD (placa / N)
     return {plastico:plastico/N,electricidad:electricidad/N,amortizacion:amortizacion/N,operario:operario/N,empaque:empaque/N,fallos:fallosPlate/N,base:basePlate/N,total:totalPlate/N,N};
   }
   function printHoursOfQuote(items){ let h=0; (items||[]).forEach(it=>{

@@ -260,7 +260,7 @@
     const c=calc.costCustom(t), unit=calc.round500(calc.suggestPrice(c.total)), qty=+t.qty||1;
     modal(`<h2>${t._editIdx>=0?'Editar':'Calcular'} pieza</h2>
       <label class="field">Descripción<input id="qc-name" value="${esc(t.name)}" oninput="A._calc.name=this.value" placeholder="ej: Llavero personalizado"></label>
-      <div class="sectiontitle">Filamento por color <span class="muted">(uno por cada color)</span></div>${segs}
+      <div class="sectiontitle">Filamento por color <span class="muted">(gramos TOTALES de la placa, como en el slicer)</span></div>${segs}
       <button class="btn ghost sm" onclick="A.qcSegAdd()">+ Agregar color/filamento</button>
       <div class="formgrid" style="margin-top:10px">
         <label class="field">Tiempo de impresión (de la placa)<div class="row" style="gap:6px"><input id="qc-th" type="number" min="0" value="${Math.floor((+t.timeH||0)+1e-9)}" oninput="A.qcTime()" style="width:60px"><span class="muted">h</span><input id="qc-tm" type="number" min="0" max="59" value="${Math.round(((+t.timeH||0)%1)*60)}" oninput="A.qcTime()" style="width:60px"><span class="muted">min</span></div></label>
