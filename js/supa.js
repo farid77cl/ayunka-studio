@@ -4,7 +4,8 @@
   let _client=null;
   function cfg(){ try{return JSON.parse(localStorage.getItem(CKEY));}catch(e){return null;} }
   function configured(){ const c=cfg(); return !!(c&&c.url&&c.key&&c.bucket); }
-  function setCfg(url,key,bucket){ localStorage.setItem(CKEY,JSON.stringify({url:(url||'').trim().replace(/\/+$/,''),key:(key||'').trim(),bucket:(bucket||'archivos').trim()})); _client=null; }
+  function normUrl(u){ return (u||'').trim().replace(/\/+$/,'').replace(/\/rest\/v1$/,'').replace(/\/+$/,''); }
+  function setCfg(url,key,bucket){ localStorage.setItem(CKEY,JSON.stringify({url:normUrl(url),key:(key||'').trim(),bucket:(bucket||'archivos').trim()})); _client=null; }
   function clearCfg(){ localStorage.removeItem(CKEY); _client=null; }
   async function client(){
     if(_client) return _client;
