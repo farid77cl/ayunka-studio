@@ -14,7 +14,7 @@
   function fileToBlobStore(file,kind){return IDB.putFile(file,{name:file.name,type:file.type,kind});}
 
   const TABS=[{id:'inicio',label:'Inicio'},{id:'productos',label:'Productos'},{id:'placas',label:'Placas'},
-    {id:'filamentos',label:'Filamentos'},{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},{id:'pedidos',label:'Pedidos'},
+    {id:'filamentos',label:'Filamentos'},{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},{id:'pedidos',label:'Producción'},
     {id:'plan',label:'Planificación'},{id:'ajustes',label:'Ajustes'}];
   function renderTabs(a){$('#tabs').innerHTML=TABS.map(t=>`<button class="tab ${t.id===a?'active':''}" onclick="A.go('${t.id}')">${t.label}</button>`).join('');}
   function go(id){location.hash='#/'+id;$('#tabs').classList.remove('open');}
@@ -207,14 +207,14 @@
   function vCotiz(){const list=DB.quotes.map(q=>{const tot=q.items.reduce((a,i)=>a+(+i.qty||0)*(+i.unitPrice||0),0)*(q.ivaIncluded?(1+DB.params.iva):1);
       return `<div class="card"><div class="row between"><h3>N° ${esc(q.number)} · ${esc(q.client.name||'Cliente')}</h3><span class="muted">${esc(q.date)}</span></div>
         <div class="muted">${q.items.length} ítem(s)</div><div class="row between" style="margin-top:6px"><b>${fmt(tot)}</b>
-        <span class="row"><button class="btn ghost sm" onclick="A.editQuote('${q.id}')">Editar</button><button class="btn coral sm" onclick="A.pdfQuote('${q.id}')">PDF</button></span></div></div>`;}).join('');
+        <span class="row"><button class="btn ghost sm" onclick="A.editQuote('${q.id}')">Editar</button><button class="btn coral sm" onclick="A.pdfQuote('${q.id}')">PDF</button>${q.estado==='aprobada'?'<span class="pill ok">en producción</span>':`<button class="btn primary sm" onclick="A.approveQuote('${q.id}')">✓ Aprobar</button>`}</span></div></div>`;}).join('');
     return `<div class="row between"><h1 class="page">Cotizaciones</h1><button class="btn primary" onclick="A.editQuote()">+ Nueva</button></div>
       <p class="sub">Arma una cotización (productos o ítems libres) y expórtala en PDF</p><div class="grid cards">${list||'<div class="empty">Sin cotizaciones</div>'}</div>`;}
   function editQuote(id){A._quote=id?JSON.parse(JSON.stringify(DB.quotes.find(x=>x.id===id))):{number:String(DB.seq.quote).padStart(4,'0'),date:new Date().toLocaleDateString('es-CL'),clientId:null,client:{name:'',phone:'',email:''},items:[],note:'',ivaIncluded:DB.params.ivaEnQuote,validDays:DB.params.quoteValidDays};renderQuoteModal();}
   function renderQuoteModal(){const q=A._quote;
     const clientOpts=`<option value="">— nuevo / escribir —</option>`+DB.clients.map(c=>`<option value="${c.id}" ${q.clientId===c.id?'selected':''}>${esc(c.name)}${c.phone?' · '+esc(c.phone):''}</option>`).join('');
     const prodOpts='<option value="">+ producto…</option>'+DB.products.map(p=>`<option value="${p.id}">${esc(p.name)} (${fmt(calc.priceOf(p))})</option>`).join('');
-    const rows=q.items.map((it,i)=>`<div class="row" style="margin:4px 0"><input value="${esc(it.name)}" style="flex:1" onchange="A.qItem(${i},'name',this.value)" placeholder="descripción"><input type="number" min="1" value="${it.qty}" style="width:56px" onchange="A.qItem(${i},'qty',this.value)"><input type="number" value="${it.unitPrice}" style="width:90px" onchange="A.qItem(${i},'unitPrice',this.value)">${it.calc?`<button class="linkish" onclick="A.qCalcEdit(${i})" title="editar pieza">✎</button>`:''}<button class="linkish" onclick="A.qDel(${i})">x</button></div>`).join('');
+    const rows=q.items.map((it,i)=>`<div class="row" style="margin:4px 0"><input value="${esc(it.name)}" style="flex:1" onchange="A.qItem(${i},'name',this.value)" placeholder="descripción"><input type="number" min="1" value="${it.qty}" style="width:56px" onchange="A.qItem(${i},'qty',this.value)"><input type="number" value="${it.unitPrice}" style="width:90px" onchange="A.qItem(${i},'unitPrice',this.value)"><button class="linkish" onclick="A.qEditItem(${i})" title="editar">✎</button><button class="linkish" onclick="A.qDel(${i})">x</button></div>`).join('');
     const net=q.items.reduce((a,i)=>a+(+i.qty||0)*(+i.unitPrice||0),0),tot=net*(q.ivaIncluded?(1+DB.params.iva):1);
     modal(`<h2>${q.id?'Editar':'Nueva'} cotización</h2>
       <label class="field">Cliente guardado<select id="q-sel" onchange="A.qPickClient(this.value)">${clientOpts}</select></label>
@@ -241,7 +241,16 @@
   function delQuote(id){DB.quotes=DB.quotes.filter(x=>x.id!==id);save();closeModal();render();toast('Cotización eliminada');}
   function pdfQuote(id){try{window.genQuotePDF(DB.quotes.find(x=>x.id===id));}catch(e){toast('Error al generar PDF');}}
 
-  function qCalcOpen(){ A._calc={name:'',segments:[{filamentId:null,grams:''}],timeH:0,postMin:5,qty:1,unitsPerPlate:1,_editIdx:-1}; renderCalcModal(); }
+  function qEditItem(i){ const it=A._quote.items[i]; if(it.calc){ qCalcEdit(i); return; }
+    modal(`<h2>Editar ítem</h2>
+      <label class="field">Descripción<input id="ei-name" value="${esc(it.name)}"></label>
+      <div class="formgrid" style="margin-top:8px"><label class="field">Cantidad<input id="ei-qty" type="number" min="1" value="${it.qty}"></label><label class="field">Precio unitario<input id="ei-price" type="number" value="${it.unitPrice}"></label></div>
+      <div class="row" style="margin-top:10px"><button class="btn ghost sm" onclick="A.qToCalc(${i})">Calcular precio con detalle →</button></div>
+      <div class="row between" style="margin-top:14px"><button class="linkish" onclick="A.qDel(${i});A.renderQuoteModal()">Eliminar</button><div class="row"><button class="btn ghost" onclick="A.renderQuoteModal()">Volver</button><button class="btn primary" onclick="A.qSaveItem(${i})">Guardar</button></div></div>`);
+  }
+  function qSaveItem(i){ const it=A._quote.items[i]; it.name=$('#ei-name').value.trim()||it.name; it.qty=num($('#ei-qty').value)||1; it.unitPrice=num($('#ei-price').value); renderQuoteModal(); }
+  function qToCalc(i){ const it=A._quote.items[i]; A._calc={name:it.name||'',segments:[{filamentId:null,grams:''}],timeH:0,postMin:5,qty:it.qty||1,unitsPerPlate:1,empaque:null,_editIdx:i}; renderCalcModal(); }
+  function qCalcOpen(){ A._calc={name:'',segments:[{filamentId:null,grams:''}],timeH:0,postMin:5,qty:1,unitsPerPlate:1,empaque:null,_editIdx:-1}; renderCalcModal(); }
   function qCalcEdit(i){ const it=A._quote.items[i]; A._calc=JSON.parse(JSON.stringify(it.calc)); A._calc._editIdx=i; if(A._calc.qty==null)A._calc.qty=it.qty||1; renderCalcModal(); }
   function renderCalcModal(){
     const t=A._calc;
@@ -258,6 +267,7 @@
         <label class="field">Unidades por placa<input type="number" min="1" value="${t.unitsPerPlate||1}" oninput="A._calc.unitsPerPlate=this.value;A.qcRefresh()"></label>
         <label class="field">Cantidad total<input type="number" min="1" value="${qty}" oninput="A._calc.qty=this.value;A.qcRefresh()"></label>
       </div>
+      <label class="row" style="gap:8px;margin-top:6px"><input type="checkbox" style="width:auto" ${(t.empaque==null)?'checked':''} onchange="A._calc.empaque=this.checked?null:0;A.qcRefresh()"> Incluir empaque (${fmt(DB.params.pack)})</label>
       <div class="card" style="margin:12px 0">
         <div class="muted" style="margin-bottom:4px">Detalle por pieza:</div>
         <div class="row between"><span>Filamento</span><b id="qd-fil">${fmt(c.plastico)}</b></div>
@@ -280,7 +290,7 @@
   function qcRefresh(){ const t=A._calc,c=calc.costCustom(t),unit=calc.round500(calc.suggestPrice(c.total)),qty=+t.qty||1; const s=(i,v)=>{const e=document.getElementById(i);if(e)e.innerHTML=v;};
     s('qd-fil',fmt(c.plastico));s('qd-luz',fmt(c.electricidad));s('qd-maq',fmt(c.amortizacion));s('qd-op',fmt(c.operario));s('qd-emp',fmt(c.empaque));s('qd-fal',fmt(c.fallos));s('qd-cost',fmt(c.total));s('qd-unit',fmt(unit));s('qd-q',qty);s('qd-tot',fmt(unit*qty)); const N=Math.max(1,+t.unitsPerPlate||1),pl=Math.ceil(qty/N); s('qd-placas','Placas necesarias: '+pl+' · '+calc.hm((+t.timeH||0)*pl)+' de impresión total'); }
   function qCalcAdd(){ const t=A._calc; const unit=calc.round500(calc.suggestPrice(calc.costCustom(t).total)); const qty=+t.qty||1;
-    const spec={name:t.name,segments:JSON.parse(JSON.stringify(t.segments)),timeH:t.timeH,postMin:t.postMin,qty:qty,unitsPerPlate:t.unitsPerPlate||1};
+    const spec={name:t.name,segments:JSON.parse(JSON.stringify(t.segments)),timeH:t.timeH,postMin:t.postMin,qty:qty,unitsPerPlate:t.unitsPerPlate||1,empaque:t.empaque};
     const item={name:t.name||'Pieza personalizada',qty:qty,unitPrice:unit,productId:null,calc:spec};
     if(t._editIdx>=0){ A._quote.items[t._editIdx]=item; } else { A._quote.items.push(item); }
     renderQuoteModal(); }
@@ -336,55 +346,69 @@
   function dayOpenFile(fid){IDB.openFile(fid).then(ok=>{if(!ok)toast('Archivo no encontrado');});}
   function daySave(){const idx=DB.schedule.findIndex(x=>x.id===A._day.id);DB.schedule[idx]=A._day;save();closeModal();render();toast('Día actualizado');}
 
-  /* ---------- PEDIDOS (cola de producción) ---------- */
+  /* ---------- PRODUCCIÓN (cola única) ---------- */
+  function orderHours(o){ if(o.items&&o.items.length) return o.items.reduce((a,it)=>a+(+it.hoursEach||0)*(+it.qty||0),0);
+    const hEach=(o.hoursEach!=null&&o.hoursEach!=='')?+o.hoursEach:(o.productId?((DB.products.find(p=>p.id===o.productId)||{}).timeH||0):0); return hEach*(+o.qty||0); }
+  function orderTitle(o){ return o.tipo==='stock'?'Reposición de stock':(o.cliente||'Cliente'); }
+  function orderDesc(o){ if(o.items&&o.items.length) return o.items.map(it=>esc(it.name)+' ×'+it.qty).join(', '); return esc(o.productName||(o.productId?((DB.products.find(p=>p.id===o.productId)||{}).name||''):'')||'Producto')+' × '+o.qty; }
+  function orderCard(o,cap,today){
+    const hours=orderHours(o), days=Math.max(1,Math.ceil(hours/cap));
+    let dueTxt='sin fecha', startTxt='', risk='ok', dleft=null;
+    if(o.fecha){ const due=new Date(o.fecha+'T00:00:00'); dleft=Math.round((due-today)/86400000); const start=new Date(due); start.setDate(start.getDate()-days);
+      dueTxt=due.toLocaleDateString('es-CL'); startTxt='Empezar antes del '+start.toLocaleDateString('es-CL');
+      risk=(o.estado!=='listo'&&start<today)?'bad':((o.estado!=='listo'&&dleft<=3)?'warn':'ok'); }
+    const col=o.tipo==='stock'?'var(--mostaza)':(risk==='bad'?'var(--coral)':risk==='warn'?'var(--terra)':'var(--niebla)');
+    return `<div class="card" style="border-left:4px solid ${col}"><div class="row between"><h3>${esc(orderTitle(o))}${o.quoteId?' <span class="tag">cotización</span>':''}</h3><span class="muted">${dueTxt}</span></div>
+      <div class="muted">${orderDesc(o)}</div>
+      <div class="row between" style="margin-top:6px"><span class="tag">${calc.hm(hours)} · ${days} día(s)</span><button class="pill ${o.estado==='listo'?'ok':o.estado==='en producción'?'warn':'bad'}" style="border:none;cursor:pointer" onclick="A.orderCycle('${o.id}')">${esc(o.estado||'pendiente')}</button></div>
+      ${o.fecha?`<div class="muted" style="margin-top:6px;color:${risk==='bad'?'var(--coral)':'var(--pizarra)'}">${risk==='bad'?'⚠ ':''}${startTxt}${dleft!=null?` · faltan ${dleft} día(s)`:''}</div>`:(o.tipo!=='stock'?'<div class="muted" style="margin-top:6px;color:var(--terra)">⚠ Falta la fecha de entrega</div>':'')}
+      <div class="row" style="margin-top:8px"><button class="btn ghost sm" onclick="A.editOrder('${o.id}')">Editar</button></div></div>`;
+  }
   function vPedidos(){
     const cap=DB.params.dayCapacityH; const today=new Date(); today.setHours(0,0,0,0);
-    const list=(DB.orders||[]).slice().sort((x,y)=>(x.fecha||'9999-99-99').localeCompare(y.fecha||'9999-99-99'));
-    let committed=0;
-    const cards=list.map(o=>{
-      const hEach=(o.hoursEach!=null&&o.hoursEach!=='')?+o.hoursEach:(o.productId?((DB.products.find(p=>p.id===o.productId)||{}).timeH||0):0);
-      const hours=hEach*(+o.qty||0), days=Math.max(1,Math.ceil(hours/cap));
-      if(o.estado!=='listo') committed+=hours;
-      let dueTxt='sin fecha', startTxt='', risk='ok', dleft=null;
-      if(o.fecha){ const due=new Date(o.fecha+'T00:00:00'); dleft=Math.round((due-today)/86400000); const start=new Date(due); start.setDate(start.getDate()-days);
-        dueTxt=due.toLocaleDateString('es-CL'); startTxt='Empezar antes del '+start.toLocaleDateString('es-CL');
-        risk=(o.estado!=='listo'&&start<today)?'bad':((o.estado!=='listo'&&dleft<=3)?'warn':'ok'); }
-      const col=risk==='bad'?'var(--coral)':risk==='warn'?'var(--terra)':'var(--niebla)';
-      const pname=esc(o.productName||(o.productId?((DB.products.find(p=>p.id===o.productId)||{}).name||''):'')||'Producto');
-      return `<div class="card" style="border-left:4px solid ${col}"><div class="row between"><h3>${esc(o.cliente||'Cliente')}</h3><span class="muted">${dueTxt}</span></div>
-        <div class="muted">${pname} × ${o.qty}</div>
-        <div class="row between" style="margin-top:6px"><span class="tag">${calc.hm(hours)} · ${days} día(s)</span><button class="pill ${o.estado==='listo'?'ok':o.estado==='en producción'?'warn':'bad'}" style="border:none;cursor:pointer" onclick="A.orderCycle('${o.id}')">${esc(o.estado||'pendiente')}</button></div>
-        ${o.fecha?`<div class="muted" style="margin-top:6px;color:${risk==='bad'?'var(--coral)':'var(--pizarra)'}">${risk==='bad'?'⚠ ':''}${startTxt}${dleft!=null?` · faltan ${dleft} día(s)`:''}</div>`:''}
-        <div class="row" style="margin-top:8px"><button class="btn ghost sm" onclick="A.editOrder('${o.id}')">Editar</button></div></div>`;
-    }).join('');
-    return `<div class="row between"><h1 class="page">Pedidos</h1><button class="btn primary" onclick="A.editOrder()">+ Pedido</button></div>
-      <p class="sub">Cola de producción ordenada por fecha de entrega. Tienen prioridad sobre la reposición de stock.</p>
+    const all=DB.orders||[];
+    const peds=all.filter(o=>o.tipo!=='stock').sort((x,y)=>(x.fecha||'9999').localeCompare(y.fecha||'9999'));
+    const stock=all.filter(o=>o.tipo==='stock');
+    const committed=all.filter(o=>o.estado!=='listo').reduce((a,o)=>a+orderHours(o),0);
+    return `<div class="row between"><h1 class="page">Producción</h1><div class="row"><button class="btn ghost" onclick="A.editOrder(null,'stock')">+ Stock</button><button class="btn primary" onclick="A.editOrder()">+ Pedido</button></div></div>
+      <p class="sub">Cola única de producción. Los pedidos de clientes tienen prioridad sobre la reposición de stock.</p>
       <div class="card"><div class="row between"><span>Horas comprometidas (pendientes)</span><b>${calc.hm(committed)}</b></div><div class="row between"><span>≈ días de producción (${cap} h/día)</span><b>${Math.ceil(committed/cap)}</b></div></div>
-      <div class="grid cards" style="margin-top:14px">${cards||'<div class="empty">Sin pedidos. Agrega uno con "+ Pedido".</div>'}</div>`;
+      <div class="sectiontitle">Pedidos de clientes (prioridad)</div>
+      <div class="grid cards">${peds.length?peds.map(o=>orderCard(o,cap,today)).join(''):'<div class="empty">Sin pedidos. Se crean al aprobar una cotización o con "+ Pedido".</div>'}</div>
+      <div class="sectiontitle">Reposición de stock</div>
+      <div class="grid cards">${stock.length?stock.map(o=>orderCard(o,cap,today)).join(''):'<div class="empty">Sin tareas de stock. Agrega con "+ Stock".</div>'}</div>`;
   }
-  function editOrder(id){
-    const o=id?JSON.parse(JSON.stringify(DB.orders.find(x=>x.id===id))):{cliente:'',productId:'',productName:'',qty:1,hoursEach:'',fecha:'',estado:'pendiente'};
+  function editOrder(id,tipo){
+    const o=id?JSON.parse(JSON.stringify(DB.orders.find(x=>x.id===id))):{tipo:tipo||'pedido',cliente:'',productId:'',productName:'',qty:1,hoursEach:'',fecha:'',estado:'pendiente',items:null};
+    const hasItems=o.items&&o.items.length;
     const prodOpts=`<option value="">— producto libre —</option>`+DB.products.map(p=>`<option value="${p.id}" ${o.productId===p.id?'selected':''}>${esc(p.name)} (${calc.hm(p.timeH)})</option>`).join('');
-    modal(`<h2>${id?'Editar':'Nuevo'} pedido</h2>
-      <label class="field">Cliente<input id="o-cli" list="o-clilist" value="${esc(o.cliente)}"><datalist id="o-clilist">${DB.clients.map(c=>`<option value="${esc(c.name)}">`).join('')}</datalist></label>
-      <label class="field" style="margin-top:8px">Producto del catálogo<select id="o-prod" onchange="A.orderProd(this.value)">${prodOpts}</select></label>
+    modal(`<h2>${id?'Editar':'Nuevo'} ${o.tipo==='stock'?'stock':'pedido'}</h2>
+      <input id="o-tipo" type="hidden" value="${o.tipo||'pedido'}">
+      ${o.tipo!=='stock'?`<label class="field">Cliente<input id="o-cli" list="o-clilist" value="${esc(o.cliente)}"><datalist id="o-clilist">${DB.clients.map(c=>`<option value="${esc(c.name)}">`).join('')}</datalist></label>`:'<input id="o-cli" type="hidden" value="">'}
+      ${hasItems?`<div class="card" style="margin-top:8px"><div class="muted">Ítems (de la cotización):</div>${o.items.map(it=>`<div class="row between"><span>${esc(it.name)} ×${it.qty}</span><span class="muted">${calc.hm((+it.hoursEach||0)*it.qty)}</span></div>`).join('')}</div><input id="o-prod" type="hidden" value=""><input id="o-pname" type="hidden" value=""><input id="o-qty" type="hidden" value="1"><input id="o-h" type="hidden" value="">`:`<label class="field" style="margin-top:8px">Producto del catálogo<select id="o-prod" onchange="A.orderProd(this.value)">${prodOpts}</select></label>
       <label class="field" style="margin-top:8px">…o nombre libre<input id="o-pname" value="${esc(o.productName)}" placeholder="ej: Llavero personalizado"></label>
+      <div class="formgrid" style="margin-top:8px"><label class="field">Cantidad<input id="o-qty" type="number" min="1" value="${o.qty}"></label><label class="field">Horas por unidad<input id="o-h" type="number" step="0.1" value="${o.hoursEach}" placeholder="auto"></label></div>`}
       <div class="formgrid" style="margin-top:8px">
-        <label class="field">Cantidad<input id="o-qty" type="number" min="1" value="${o.qty}"></label>
-        <label class="field">Horas por unidad<input id="o-h" type="number" step="0.1" value="${o.hoursEach}" placeholder="auto del producto"></label>
-        <label class="field">Fecha de entrega<input id="o-fecha" type="date" value="${o.fecha||''}"></label>
+        ${o.tipo!=='stock'?`<label class="field">Fecha de entrega<input id="o-fecha" type="date" value="${o.fecha||''}"></label>`:'<input id="o-fecha" type="hidden" value="">'}
         <label class="field">Estado<select id="o-estado"><option ${(o.estado||'pendiente')==='pendiente'?'selected':''}>pendiente</option><option ${o.estado==='en producción'?'selected':''}>en producción</option><option ${o.estado==='listo'?'selected':''}>listo</option></select></label>
       </div>
       <div class="row between" style="margin-top:14px"><div>${id?`<button class="linkish" onclick="A.delOrder('${id}')">Eliminar</button>`:''}</div>
         <div class="row"><button class="btn ghost" onclick="A.closeModal()">Cancelar</button><button class="btn primary" onclick="A.saveOrder('${id||''}')">Guardar</button></div></div>`);
   }
   function orderProd(pid){ const p=DB.products.find(x=>x.id===pid); if(p){ const h=document.getElementById('o-h'); if(h&&!h.value)h.value=p.timeH; const pn=document.getElementById('o-pname'); if(pn&&!pn.value)pn.value=p.name; } }
-  function saveOrder(id){ const g=i=>document.getElementById(i).value;
-    const o={cliente:g('o-cli').trim()||'Cliente',productId:g('o-prod')||'',productName:g('o-pname').trim(),qty:num(g('o-qty'))||1,hoursEach:g('o-h')===''?'':num(g('o-h')),fecha:g('o-fecha'),estado:g('o-estado')};
-    if(id){Object.assign(DB.orders.find(x=>x.id===id),o);}else{o.id=window.uid();o.createdAt=Date.now();DB.orders.push(o);}
-    save();closeModal();render();toast('Pedido guardado'); }
-  function delOrder(id){DB.orders=DB.orders.filter(x=>x.id!==id);save();closeModal();render();toast('Pedido eliminado');}
+  function saveOrder(id){ const g=i=>{const e=document.getElementById(i);return e?e.value:'';}; const ex=id?DB.orders.find(x=>x.id===id):null;
+    const o={tipo:g('o-tipo')||'pedido',cliente:g('o-cli').trim(),productId:g('o-prod')||'',productName:g('o-pname').trim(),qty:num(g('o-qty'))||1,hoursEach:g('o-h')===''?'':num(g('o-h')),fecha:g('o-fecha'),estado:g('o-estado')};
+    if(o.tipo!=='stock'&&!o.cliente)o.cliente='Cliente';
+    if(ex){ o.items=ex.items; o.quoteId=ex.quoteId; Object.assign(ex,o); } else { o.id=window.uid(); o.createdAt=Date.now(); DB.orders.push(o); }
+    save();closeModal();render();toast('Guardado'); }
+  function delOrder(id){DB.orders=DB.orders.filter(x=>x.id!==id);save();closeModal();render();toast('Eliminado');}
   function orderCycle(id){const c={'pendiente':'en producción','en producción':'listo','listo':'pendiente'};const o=DB.orders.find(x=>x.id===id);o.estado=c[o.estado||'pendiente'];save();render();}
+  function hoursForItem(it){ if(it.productId){const p=DB.products.find(x=>x.id===it.productId);return p?+p.timeH||0:0;} if(it.calc){return (+it.calc.timeH||0)/Math.max(1,+it.calc.unitsPerPlate||1);} return 0; }
+  function approveQuote(id){ const q=DB.quotes.find(x=>x.id===id); if(!q) return;
+    if((DB.orders||[]).some(o=>o.quoteId===id)){ q.estado='aprobada'; save(); render(); toast('Esta cotización ya está en producción'); return; }
+    const items=q.items.map(it=>({name:it.name,qty:+it.qty||1,hoursEach:hoursForItem(it)}));
+    DB.orders.push({id:window.uid(),tipo:'pedido',cliente:q.client.name||'Cliente',quoteId:id,items:items,fecha:'',estado:'pendiente',createdAt:Date.now()});
+    q.estado='aprobada'; save(); toast('Cotización aprobada → cola de producción'); go('pedidos'); }
 
   /* ---------- AJUSTES ---------- */
   function vAjustes(){const p=DB.params,b=p.business;const f=(id,lbl,val,step)=>`<label class="field">${lbl}<input id="${id}" type="number" ${step?`step="${step}"`:''} value="${val}"></label>`;const bks=(window.listBackups?window.listBackups():[]).slice().reverse();
@@ -452,8 +476,8 @@
     addDesigns,editProduct,renderProductModal,prodRefresh,prodTime,prodImg,prodAddFiles,prodOpenFile,viewFile,viewUrl,prodDelFile,saveProduct,delProduct,
     editFil,saveFil,delFil,filAuto,editPlate,renderPlateModal,plateAdd,plateQty,plateDel,plateRefresh,savePlate,delPlate,printPlate,
     editClient,saveClient,delClient,quoteForClient,
-    editQuote,renderQuoteModal,qPickClient,qCalcOpen,qCalcEdit,renderCalcModal,qcSeg,qcSegAdd,qcSegDel,qcTime,qcRefresh,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
-    planSync,editOrder,orderProd,saveOrder,delOrder,orderCycle,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,syncSave,syncOff,_syncNote,restoreBk,expData,impData,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null};
+    editQuote,renderQuoteModal,qPickClient,qEditItem,qSaveItem,qToCalc,qCalcOpen,qCalcEdit,renderCalcModal,qcSeg,qcSegAdd,qcSegDel,qcTime,qcRefresh,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
+    planSync,editOrder,orderProd,saveOrder,delOrder,orderCycle,approveQuote,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,syncSave,syncOff,_syncNote,restoreBk,expData,impData,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null};
 
   window.__render=render;
   try{ window.__syncCfgRaw = JSON.stringify((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'null')||{}).firebase||'',null,0); }catch(e){}

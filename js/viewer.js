@@ -12,6 +12,8 @@
     const root=document.getElementById('viewer-root'); if(!root) return;
     root.innerHTML='<div class="modal-bg" style="z-index:70" onclick="if(event.target===this)window.STLViewer.close()"><div class="modal"><h2 style="margin:0 0 10px">'+(name||'Modelo')+'</h2><div id="stlv" style="width:100%;height:360px;background:#ECE6DA;border-radius:12px;display:flex;align-items:center;justify-content:center"><span class="muted">Cargando visor 3D…</span></div><div class="muted" style="margin-top:6px">Arrastra para girar · rueda para zoom</div><div class="row between" style="margin-top:12px"><button class="btn ghost" onclick="window.STLViewer.close()">Cerrar</button><button class="btn ghost" id="stlv-dl">Descargar para laminar</button></div></div></div>';
     document.getElementById('stlv-dl').onclick=()=>{const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name||'modelo.stl';a.click();setTimeout(()=>URL.revokeObjectURL(u),4000);};
+    const ext=(name||'').toLowerCase().split('.').pop();
+    if(ext!=='stl'){ const c=document.getElementById('stlv'); if(c)c.innerHTML='<span class="muted" style="padding:16px;text-align:center">Vista previa 3D disponible solo para STL.<br>Para 3MF/OBJ usa «Descargar para laminar».</span>'; return; }
     try{ await ensure(); }catch(e){ const c=document.getElementById('stlv'); if(c)c.innerHTML='<span class="muted" style="padding:16px;text-align:center">No se pudo cargar el visor (sin conexión). Usa «Descargar para laminar».</span>'; return; }
     let buf; try{ buf=await blob.arrayBuffer(); }catch(e){ return; }
     render(buf);
