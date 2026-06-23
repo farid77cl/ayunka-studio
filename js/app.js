@@ -54,7 +54,7 @@
         <td class="num">${fmt(c.total)}</td><td class="num">${fmt(price)}</td>
         <td class="num"><span class="pill ${m>=0.6?'ok':m>=0.4?'warn':'bad'}">${pct(m)}</span></td>
         <td class="num"><button class="btn ghost sm" onclick="A.editProduct('${p.id}')">Editar</button></td></tr>`;}).join('');
-    return `<div class="row between"><h1 class="page">Productos</h1><div class="row">${window.AYUNKA_DESIGNS?`<button class="btn ghost" onclick="A.addDesigns()">+ Diseños Ayünka</button>`:''}<button class="btn primary" onclick="A.editProduct()">+ Nuevo</button></div></div>
+    return `<div class="row between"><h1 class="page">Productos</h1><div class="row">${window.AYUNKA_DESIGNS?`<button class="btn ghost" onclick="A.addDesigns()">+ Diseños Ayünka</button>`:''}<button class="btn ghost" onclick="A.delProductsNoFile()">Limpiar sin archivo</button><button class="btn primary" onclick="A.editProduct()">+ Nuevo</button></div></div>
       <p class="sub">Costo de producción y precio sugerido por pieza</p>
       <div class="tablewrap"><table><thead><tr><th>Pieza</th><th class="num">Costo</th><th class="num">Precio</th><th class="num">Margen</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="empty">Sin productos</td></tr>'}</tbody></table></div>`;
   }
@@ -462,6 +462,7 @@
   function impData(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=e=>{const fr=new FileReader();fr.onload=()=>{try{window.importDB(fr.result);}catch(x){toast('Archivo inválido');}};fr.readAsText(e.target.files[0]);};i.click();}
 
   function dataURLtoBlob(durl){const i=durl.indexOf(',');const head=durl.slice(0,i),b=durl.slice(i+1);const mime=(head.match(/:(.*?);/)||[])[1]||'application/octet-stream';const bin=atob(b);const u=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);return new Blob([u],{type:mime});}
+  function delProductsNoFile(){ const sinf=DB.products.filter(p=>!(p.files&&p.files.length)); if(!sinf.length){toast("Todos los productos tienen archivo");return;} if(confirm("¿Eliminar "+sinf.length+" producto(s) sin ningún STL/3MF asociado?")){ DB.products=DB.products.filter(p=>p.files&&p.files.length); save(); render(); toast(sinf.length+" producto(s) eliminados"); } }
   async function addDesigns(){
     const list=window.AYUNKA_DESIGNS||[]; let added=0;
     for(const d of list){
@@ -480,7 +481,7 @@
   $('#menuBtn').addEventListener('click',()=>$('#tabs').classList.toggle('open'));
 
   window.A={go,closeModal,
-    addDesigns,editProduct,renderProductModal,prodRefresh,prodTime,prodImg,prodAddFiles,prodOpenFile,viewFile,viewUrl,prodDelFile,saveProduct,delProduct,
+    addDesigns,delProductsNoFile,editProduct,renderProductModal,prodRefresh,prodTime,prodImg,prodAddFiles,prodOpenFile,viewFile,viewUrl,prodDelFile,saveProduct,delProduct,
     editFil,saveFil,delFil,filAuto,editPlate,renderPlateModal,plateAdd,plateQty,plateDel,plateRefresh,savePlate,delPlate,printPlate,
     editClient,saveClient,delClient,quoteForClient,
     editQuote,renderQuoteModal,qPickClient,qEditItem,qSaveItem,qToCalc,qCalcOpen,qCalcEdit,renderCalcModal,qcSeg,qcSegAdd,qcSegDel,qcTime,qcRefresh,qcPrice,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
