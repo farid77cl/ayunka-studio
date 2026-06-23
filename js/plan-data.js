@@ -10,6 +10,14 @@
       J('p2','Laminar todo en OrcaSlicer',0,'Lamina cada pieza y anota PESO (g) y TIEMPO (h). Cárgalos en cada producto para que el costo y el precio queden exactos.'),
       J('p3','Test de calibración',0.5,'Imprime 1 pieza chica para ajustar primera capa y temperatura del filamento.')
     ],'Confirmar colores de filamento en stock'),
+    D('Sem 0','Calibración',[
+      J('cal1','Calibrar vibración / input shaping (una vez)',0.4,'Una sola vez (no depende del filamento). En la K2: Configuración → Calibración → compensación de vibración/resonancia. Repetir solo si mueves o cambias algo mecánico de la impresora.'),
+      J('cal2','Calibrar ESUN PLA — temp + flujo',0.8,'Torre de temperatura (probar 195–225°C) para hallar la mejor; luego calibración de flujo. Anota los GRAMOS y TIEMPO reales de la placa de prueba y cárgalos en la app (costeo exacto).'),
+      J('cal3','Calibrar Creality PLA — temp + flujo',0.8,'Igual que ESUN: torre de temp + flujo. Cada marca imprime distinto aunque sea PLA.'),
+      J('cal4','Calibrar Ender PLA (blanco y negro) — temp + flujo',0.8,'Torre de temp + flujo. El negro suele necesitar un poco más de temperatura que el blanco.'),
+      J('cal5','Calibrar ESUN Mate (lila / verde)',0.6,'Los mate fluyen distinto: ajusta temperatura, flujo y velocidad volumétrica máxima.'),
+      J('cal6','Guardar perfiles en OrcaSlicer',0.3,'Crea un perfil por marca (ej. "PLA ESUN Mate") con la temp y flujo ya calibrados. Reúsalo: NO recalibres por cada rollo, solo cuando estrenes una marca/tipo/color nuevo.')
+    ],'Regla de oro: calibrar 1 vez por marca de filamento, no por rollo. La nivelación de cama la K2 la hace sola antes de cada impresión.'),
     D('Sem 1','Lun',[
       J('s1l1','Organizador escritorio #1',3,'1 unidad en crema con acento coral. 0.2mm, 15% relleno.'),
       J('s1l2','Cajita bobinas ×2',3,'2 unidades: una azul niebla, una crema.'),
