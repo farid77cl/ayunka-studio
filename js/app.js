@@ -67,7 +67,7 @@
     const filOpts=`<option value="">— precio material por defecto —</option>`+DB.filaments.map(f=>`<option value="${f.id}" ${p.filamentId===f.id?'selected':''}>${esc(f.color)} · ${esc(f.marca)} (${fmt(f.rollPrice/f.rollGrams*1000)}/kg)</option>`).join('');
     const c=calc.costPiece(p),pr=calc.priceOf(p);
     const img=p.imageUrl?`<img class="thumb big" src="${esc(p.imageUrl)}" alt="">`:(p.imageId?`<img class="thumb big" data-img-id="${p.imageId}" alt="">`:`<div class="thumb big ph"><i>🧵</i></div>`);
-    const files=(p.files||[]).map(f=>{const v=f.url?`A.viewUrl('${f.url}','${esc(f.name)}')`:`A.viewFile('${f.id}','${esc(f.name)}')`;const k=f.id||f.url;return `<div class="row between" style="margin:3px 0"><span>📄 ${esc(f.name)}</span><span class="row"><button class="btn ghost sm" onclick="${v}">Ver</button><button class="linkish" onclick="A.prodDelFile('${esc(k)}')">quitar</button></span></div>`;}).join('');
+    const files=(p.files||[]).map(f=>{const v=f.url?`A.viewUrl('${f.url}','${esc(f.name)}')`:`A.viewFile('${f.id}','${esc(f.name)}')`;const k=f.id||f.url;return `<div class="row between" style="margin:3px 0"><span>📄 ${esc(f.name)} <span class="tag">${f.url?'nube':'local'}</span></span><span class="row"><button class="btn ghost sm" onclick="${v}">Ver</button><button class="linkish" onclick="A.prodDelFile('${esc(k)}')">quitar</button></span></div>`;}).join('');
     modal(`<h2>${p.id?'Editar':'Nuevo'} producto</h2>
       <div class="row" style="gap:14px;align-items:flex-start">${img}
         <div style="flex:1"><label class="field">Nombre<input id="f-name" value="${esc(p.name)}" oninput="A._prod.name=this.value"></label>
@@ -97,7 +97,7 @@
   async function prodAddFiles(inp){try{for(const f of inp.files){const fid=await fileToBlobStore(f,'stl');A._prod.files.push({id:fid,name:f.name});}renderProductModal();}catch(e){toast('No se pudo adjuntar');}}
   function prodOpenFile(fid){IDB.openFile(fid).then(ok=>{if(!ok)toast('Archivo no encontrado');});}
   function viewUrl(url,name){ window.STLViewer.openUrl(url,name); }
-  async function viewFile(fid,name){ try{ const f=await IDB.getFile(fid); if(!f){toast('Archivo no encontrado');return;} window.STLViewer.open(f.blob,name||f.name); }catch(e){ toast('No se pudo abrir el visor'); } }
+  async function viewFile(fid,name){ try{ const f=await IDB.getFile(fid); if(!f){toast('Archivo local: se subió en otro dispositivo. Para verlo en todos lados, usa el catálogo «+ Diseños Ayünka».');return;} window.STLViewer.open(f.blob,name||f.name); }catch(e){ toast('No se pudo abrir el visor'); } }
   async function prodDelFile(key){const f=(A._prod.files||[]).find(x=>(x.id||x.url)===key);if(f&&f.id)await IDB.delFile(f.id);A._prod.files=A._prod.files.filter(x=>(x.id||x.url)!==key);renderProductModal();}
   function saveProduct(){const p=A._prod;p.name=( $('#f-name').value||'Pieza').trim();p.grams=num(p.grams);p.timeH=num(p.timeH);p.colors=num(p.colors)||1;p.postMin=num(p.postMin);
     if(p.id){Object.assign(DB.products.find(x=>x.id===p.id),p);}else{p.id=window.uid();p.stock=0;DB.products.push(p);}save();closeModal();render();toast('Producto guardado');}
