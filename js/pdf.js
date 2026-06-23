@@ -46,7 +46,7 @@
 
     // Condiciones: abono + tiempo de producción
     const abonoPct=P.abonoPct||0.5, abono=tot*abonoPct, saldo=tot-abono;
-    const ph=window.calc.printHoursOf(q.items.filter(i=>i.productId)), days=window.calc.productionDays(ph);
+    const ph=window.calc.printHoursOfQuote(q.items), days=window.calc.productionDays(ph);
     doc.setDrawColor(...PZ);doc.setFillColor(246,242,233);doc.roundedRect(M,y-2,W-2*M,86,6,6,'FD');
     doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.text('Condiciones',M+14,y+16);
     doc.setFont('helvetica','normal');doc.setFontSize(9.8);

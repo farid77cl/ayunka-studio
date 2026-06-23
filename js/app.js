@@ -226,10 +226,11 @@
       <label class="field" style="margin-top:12px">Nota<input id="q-note" value="${esc(q.note)}" oninput="A._quote.note=this.value"></label>
       <label class="row" style="margin-top:10px;gap:8px"><input type="checkbox" style="width:auto" ${q.ivaIncluded?'checked':''} onchange="A._quote.ivaIncluded=this.checked;A.qRefresh()"> Incluir IVA 19%</label>
       <div class="row between" style="margin-top:10px"><span>Total</span><b id="q-tot" style="font-size:20px">${fmt(tot)}</b></div>
+      <div class="muted" id="q-prod" style="margin-top:4px">${(()=>{const ph=calc.printHoursOfQuote(q.items);return ph>0?'⏱ Producción ≈ '+calc.hm(ph)+' de impresión · '+calc.productionDays(ph)+' día(s) hábiles':'';})()}</div>
       <div class="row between" style="margin-top:12px"><div>${q.id?`<button class="linkish" onclick="A.delQuote('${q.id}')">Eliminar</button>`:''}</div>
         <div class="row"><button class="btn ghost" onclick="A.closeModal()">Cancelar</button><button class="btn primary" onclick="A.saveQuote(false)">Guardar</button><button class="btn coral" onclick="A.saveQuote(true)">Guardar + PDF</button></div></div>`);}
   function qPickClient(id){const c=DB.clients.find(x=>x.id===id);A._quote.clientId=id||null;if(c){A._quote.client={name:c.name,phone:c.phone,email:c.email};}renderQuoteModal();}
-  function qRefresh(){const q=A._quote,net=q.items.reduce((a,i)=>a+(+i.qty||0)*(+i.unitPrice||0),0),tot=net*(q.ivaIncluded?(1+DB.params.iva):1);const e=$('#q-tot');if(e)e.textContent=fmt(tot);}
+  function qRefresh(){const q=A._quote,net=q.items.reduce((a,i)=>a+(+i.qty||0)*(+i.unitPrice||0),0),tot=net*(q.ivaIncluded?(1+DB.params.iva):1);const e=$('#q-tot');if(e)e.textContent=fmt(tot);const pe=$('#q-prod');if(pe){const ph=calc.printHoursOfQuote(q.items);pe.textContent=ph>0?('⏱ Producción ≈ '+calc.hm(ph)+' de impresión · '+calc.productionDays(ph)+' día(s) hábiles'):'';}}
   function qAdd(pid){if(!pid)return;const p=DB.products.find(x=>x.id===pid);A._quote.items.push({name:p.name,qty:1,unitPrice:calc.priceOf(p),productId:p.id});renderQuoteModal();}
   function qAddFree(){A._quote.items.push({name:'',qty:1,unitPrice:0,productId:null});renderQuoteModal();}
   function qItem(i,k,v){A._quote.items[i][k]=(k==='name')?v:num(v);qRefresh();}

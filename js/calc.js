@@ -52,5 +52,9 @@
     // devuelve valores POR UNIDAD (placa / N)
     return {plastico:plastico/N,electricidad:electricidad/N,amortizacion:amortizacion/N,operario:operario/N,empaque:empaque/N,fallos:fallosPlate/N,base:basePlate/N,total:totalPlate/N,N};
   }
-  window.calc={costPiece,costCustom,kgPrice,suggestPrice,round500,priceOf,marginPct,costPlate,amortPerH,elecPerH,kgPriceFor,purgeFactor,hm,toHours,printHoursOf,productionDays};
+  function printHoursOfQuote(items){ let h=0; (items||[]).forEach(it=>{
+    if(it.calc){ const N=Math.max(1,+it.calc.unitsPerPlate||1); h+=Math.ceil((+it.qty||0)/N)*(+it.calc.timeH||0); }
+    else if(it.productId){ const p=window.DB.products.find(x=>x.id===it.productId); if(p) h+=(+p.timeH||0)*(+it.qty||0); }
+  }); return h; }
+  window.calc={costPiece,costCustom,kgPrice,printHoursOfQuote,suggestPrice,round500,priceOf,marginPct,costPlate,amortPerH,elecPerH,kgPriceFor,purgeFactor,hm,toHours,printHoursOf,productionDays};
 })();
