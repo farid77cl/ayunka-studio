@@ -14,7 +14,7 @@
   function fileToBlobStore(file,kind){return IDB.putFile(file,{name:file.name,type:file.type,kind});}
 
   const TABS=[{id:'inicio',label:'Inicio'},{id:'productos',label:'Productos'},{id:'placas',label:'Placas'},
-    {id:'filamentos',label:'Filamentos'},{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},{id:'pedidos',label:'Pedidos'},
+    {id:'filamentos',label:'Filamentos'},{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},
     {id:'plan',label:'Planificación'},{id:'ajustes',label:'Ajustes'}];
   function renderTabs(a){$('#tabs').innerHTML=TABS.map(t=>`<button class="tab ${t.id===a?'active':''}" onclick="A.go('${t.id}')">${t.label}</button>`).join('');}
   function go(id){location.hash='#/'+id;$('#tabs').classList.remove('open');}
@@ -67,7 +67,7 @@
     const filOpts=`<option value="">— precio material por defecto —</option>`+DB.filaments.map(f=>`<option value="${f.id}" ${p.filamentId===f.id?'selected':''}>${esc(f.color)} · ${esc(f.marca)} (${fmt(f.rollPrice/f.rollGrams*1000)}/kg)</option>`).join('');
     const c=calc.costPiece(p),pr=calc.priceOf(p);
     const img=p.imageId?`<img class="thumb big" data-img-id="${p.imageId}" alt="">`:`<div class="thumb big ph"><i>🧵</i></div>`;
-    const files=(p.files||[]).map(f=>{const v=f.url?`A.viewUrl('${f.url}','${esc(f.name)}')`:`A.viewFile('${f.id}','${esc(f.name)}')`;const k=f.id||f.url;return `<div class="row between" style="margin:3px 0"><span>📄 ${esc(f.name)}</span><span class="row"><button class="btn ghost sm" onclick="${v}">Ver</button><button class="linkish" onclick="A.prodDelFile('${esc(k)}')">quitar</button></span></div>`;}).join('');
+    const files=(p.files||[]).map(f=>`<div class="row between" style="margin:3px 0"><span>📄 ${esc(f.name)}</span><span class="row"><button class="btn ghost sm" onclick="A.viewFile('${f.id}','${esc(f.name)}')">Ver</button><button class="linkish" onclick="A.prodDelFile('${f.id}')">quitar</button></span></div>`).join('');
     modal(`<h2>${p.id?'Editar':'Nuevo'} producto</h2>
       <div class="row" style="gap:14px;align-items:flex-start">${img}
         <div style="flex:1"><label class="field">Nombre<input id="f-name" value="${esc(p.name)}" oninput="A._prod.name=this.value"></label>
@@ -96,9 +96,8 @@
   async function prodImg(inp){const f=inp.files[0];if(!f)return;try{if(A._prod.imageId)await IDB.delFile(A._prod.imageId);A._prod.imageId=await fileToBlobStore(f,'image');renderProductModal();}catch(e){toast('No se pudo guardar la imagen');}}
   async function prodAddFiles(inp){try{for(const f of inp.files){const fid=await fileToBlobStore(f,'stl');A._prod.files.push({id:fid,name:f.name});}renderProductModal();}catch(e){toast('No se pudo adjuntar');}}
   function prodOpenFile(fid){IDB.openFile(fid).then(ok=>{if(!ok)toast('Archivo no encontrado');});}
-  function viewUrl(url,name){ window.STLViewer.openUrl(url,name); }
   async function viewFile(fid,name){ try{ const f=await IDB.getFile(fid); if(!f){toast('Archivo no encontrado');return;} window.STLViewer.open(f.blob,name||f.name); }catch(e){ toast('No se pudo abrir el visor'); } }
-  async function prodDelFile(key){const f=(A._prod.files||[]).find(x=>(x.id||x.url)===key);if(f&&f.id)await IDB.delFile(f.id);A._prod.files=A._prod.files.filter(x=>(x.id||x.url)!==key);renderProductModal();}
+  async function prodDelFile(fid){await IDB.delFile(fid);A._prod.files=A._prod.files.filter(f=>f.id!==fid);renderProductModal();}
   function saveProduct(){const p=A._prod;p.name=( $('#f-name').value||'Pieza').trim();p.grams=num(p.grams);p.timeH=num(p.timeH);p.colors=num(p.colors)||1;p.postMin=num(p.postMin);
     if(p.id){Object.assign(DB.products.find(x=>x.id===p.id),p);}else{p.id=window.uid();p.stock=0;DB.products.push(p);}save();closeModal();render();toast('Producto guardado');}
   function delProduct(id){DB.products=DB.products.filter(x=>x.id!==id);save();closeModal();render();toast('Producto eliminado');}
@@ -214,7 +213,7 @@
   function renderQuoteModal(){const q=A._quote;
     const clientOpts=`<option value="">— nuevo / escribir —</option>`+DB.clients.map(c=>`<option value="${c.id}" ${q.clientId===c.id?'selected':''}>${esc(c.name)}${c.phone?' · '+esc(c.phone):''}</option>`).join('');
     const prodOpts='<option value="">+ producto…</option>'+DB.products.map(p=>`<option value="${p.id}">${esc(p.name)} (${fmt(calc.priceOf(p))})</option>`).join('');
-    const rows=q.items.map((it,i)=>`<div class="row" style="margin:4px 0"><input value="${esc(it.name)}" style="flex:1" onchange="A.qItem(${i},'name',this.value)" placeholder="descripción"><input type="number" min="1" value="${it.qty}" style="width:56px" onchange="A.qItem(${i},'qty',this.value)"><input type="number" value="${it.unitPrice}" style="width:90px" onchange="A.qItem(${i},'unitPrice',this.value)">${it.calc?`<button class="linkish" onclick="A.qCalcEdit(${i})" title="editar pieza">✎</button>`:''}<button class="linkish" onclick="A.qDel(${i})">x</button></div>`).join('');
+    const rows=q.items.map((it,i)=>`<div class="row" style="margin:4px 0"><input value="${esc(it.name)}" style="flex:1" onchange="A.qItem(${i},'name',this.value)" placeholder="descripción"><input type="number" min="1" value="${it.qty}" style="width:56px" onchange="A.qItem(${i},'qty',this.value)"><input type="number" value="${it.unitPrice}" style="width:90px" onchange="A.qItem(${i},'unitPrice',this.value)"><button class="linkish" onclick="A.qDel(${i})">x</button></div>`).join('');
     const net=q.items.reduce((a,i)=>a+(+i.qty||0)*(+i.unitPrice||0),0),tot=net*(q.ivaIncluded?(1+DB.params.iva):1);
     modal(`<h2>${q.id?'Editar':'Nueva'} cotización</h2>
       <label class="field">Cliente guardado<select id="q-sel" onchange="A.qPickClient(this.value)">${clientOpts}</select></label>
@@ -241,55 +240,33 @@
   function delQuote(id){DB.quotes=DB.quotes.filter(x=>x.id!==id);save();closeModal();render();toast('Cotización eliminada');}
   function pdfQuote(id){try{window.genQuotePDF(DB.quotes.find(x=>x.id===id));}catch(e){toast('Error al generar PDF');}}
 
-  function qCalcOpen(){ A._calc={name:'',segments:[{filamentId:null,grams:''}],timeH:0,postMin:5,qty:1,unitsPerPlate:1,_editIdx:-1}; renderCalcModal(); }
-  function qCalcEdit(i){ const it=A._quote.items[i]; A._calc=JSON.parse(JSON.stringify(it.calc)); A._calc._editIdx=i; if(A._calc.qty==null)A._calc.qty=it.qty||1; renderCalcModal(); }
   function renderCalcModal(){
     const t=A._calc;
-    const filSel=(sel)=>`<option value="">PLA por defecto</option>`+DB.filaments.map(f=>`<option value="${f.id}" ${sel===f.id?'selected':''}>${esc(f.color)} · ${esc(f.marca)} (${fmt(f.rollPrice/f.rollGrams*1000)}/kg)</option>`).join('');
-    const segs=t.segments.map((s,i)=>`<div class="row" style="gap:6px;margin:3px 0"><select onchange="A.qcSeg(${i},'filamentId',this.value)" style="flex:1">${filSel(s.filamentId)}</select><input type="number" placeholder="g" value="${s.grams}" style="width:74px" oninput="A.qcSeg(${i},'grams',this.value)">${t.segments.length>1?`<button class="linkish" onclick="A.qcSegDel(${i})">x</button>`:''}</div>`).join('');
-    const c=calc.costCustom(t), unit=calc.round500(calc.suggestPrice(c.total)), qty=+t.qty||1;
-    modal(`<h2>${t._editIdx>=0?'Editar':'Calcular'} pieza</h2>
+    const filOpts=`<option value="">— precio material por defecto —</option>`+DB.filaments.map(f=>`<option value="${f.id}" ${t.filamentId===f.id?'selected':''}>${esc(f.color)} · ${esc(f.marca)} (${fmt(f.rollPrice/f.rollGrams*1000)}/kg)</option>`).join('');
+    const c=calc.costPiece(t),price=calc.round500(calc.suggestPrice(c.total));
+    modal(`<h2>Calcular pieza</h2><div class="muted" style="margin-bottom:10px">Ingresa los datos y se calcula el precio para sumarlo a la cotización.</div>
       <label class="field">Descripción<input id="qc-name" value="${esc(t.name)}" oninput="A._calc.name=this.value" placeholder="ej: Llavero personalizado"></label>
-      <div class="sectiontitle">Filamento por color <span class="muted">(uno por cada color)</span></div>${segs}
-      <button class="btn ghost sm" onclick="A.qcSegAdd()">+ Agregar color/filamento</button>
-      <div class="formgrid" style="margin-top:10px">
-        <label class="field">Tiempo de impresión (de la placa)<div class="row" style="gap:6px"><input id="qc-th" type="number" min="0" value="${Math.floor((+t.timeH||0)+1e-9)}" oninput="A.qcTime()" style="width:60px"><span class="muted">h</span><input id="qc-tm" type="number" min="0" max="59" value="${Math.round(((+t.timeH||0)%1)*60)}" oninput="A.qcTime()" style="width:60px"><span class="muted">min</span></div></label>
-        <label class="field">Postproducción (min/unidad)<input type="number" value="${t.postMin}" oninput="A._calc.postMin=this.value;A.qcRefresh()"></label>
-        <label class="field">Unidades por placa<input type="number" min="1" value="${t.unitsPerPlate||1}" oninput="A._calc.unitsPerPlate=this.value;A.qcRefresh()"></label>
-        <label class="field">Cantidad total<input type="number" min="1" value="${qty}" oninput="A._calc.qty=this.value;A.qcRefresh()"></label>
+      <div class="formgrid" style="margin-top:8px">
+        <label class="field">Material<select id="qc-mat" onchange="A._calc.material=this.value;A.qcRefresh()">${matOptions(t.material)}</select></label>
+        <label class="field">Filamento (precio real)<select id="qc-fil" onchange="A._calc.filamentId=this.value||null;A.qcRefresh()">${filOpts}</select></label>
+        <label class="field">Gramos de filamento (g)<input id="qc-g" type="number" value="${t.grams}" oninput="A._calc.grams=this.value;A.qcRefresh()"></label>
+        <label class="field">N° de colores<input id="qc-c" type="number" min="1" value="${t.colors}" oninput="A._calc.colors=this.value;A.qcRefresh()"></label>
+        <label class="field">Tiempo impresión<div class="row" style="gap:6px"><input id="qc-th" type="number" min="0" value="${Math.floor((+t.timeH||0)+1e-9)}" oninput="A.qcTime()" style="width:60px"><span class="muted">h</span><input id="qc-tm" type="number" min="0" max="59" value="${Math.round(((+t.timeH||0)%1)*60)}" oninput="A.qcTime()" style="width:60px"><span class="muted">min</span></div></label>
+        <label class="field">Postproducción (min)<input id="qc-post" type="number" value="${t.postMin}" oninput="A._calc.postMin=this.value;A.qcRefresh()"></label>
       </div>
-      <div class="card" style="margin:12px 0">
-        <div class="muted" style="margin-bottom:4px">Detalle por pieza:</div>
-        <div class="row between"><span>Filamento</span><b id="qd-fil">${fmt(c.plastico)}</b></div>
-        <div class="row between"><span>Electricidad</span><b id="qd-luz">${fmt(c.electricidad)}</b></div>
-        <div class="row between"><span>Máquina (amortización)</span><b id="qd-maq">${fmt(c.amortizacion)}</b></div>
-        <div class="row between"><span>Mano de obra</span><b id="qd-op">${fmt(c.operario)}</b></div>
-        <div class="row between"><span>Empaque</span><b id="qd-emp">${fmt(c.empaque)}</b></div>
-        <div class="row between"><span>Margen por fallas</span><b id="qd-fal">${fmt(c.fallos)}</b></div>
-        <div class="row between" style="border-top:1px solid var(--line);margin-top:4px;padding-top:4px"><span>Costo unitario</span><b id="qd-cost">${fmt(c.total)}</b></div>
-        <div class="row between"><span>Precio sugerido (unidad)</span><b id="qd-unit" style="color:var(--coral)">${fmt(unit)}</b></div>
-        <div class="row between" style="font-size:17px"><span>Total (× <span id="qd-q">${qty}</span>)</span><b id="qd-tot" style="color:var(--coral)">${fmt(unit*qty)}</b></div>
-        <div class="muted" id="qd-placas">Placas necesarias: ${Math.ceil(qty/Math.max(1,+t.unitsPerPlate||1))} · ${calc.hm((+t.timeH||0)*Math.ceil(qty/Math.max(1,+t.unitsPerPlate||1)))} de impresión total</div>
-      </div>
-      <div class="row between"><button class="btn ghost" onclick="A.renderQuoteModal()">Volver</button><button class="btn coral" onclick="A.qCalcAdd()">${t._editIdx>=0?'Guardar cambios':'Agregar a la cotización'}</button></div>`);
+      <div class="card" style="margin:12px 0"><div class="row between"><span>Costo de producción</span><b id="qc-cost">${fmt(c.total)}</b></div><div class="row between"><span>Precio sugerido</span><b id="qc-price" style="color:var(--coral);font-size:20px">${fmt(price)}</b></div></div>
+      <div class="row between"><button class="btn ghost" onclick="A.renderQuoteModal()">Volver</button><button class="btn coral" onclick="A.qCalcAdd()">Agregar a la cotización</button></div>`);
   }
-  function qcSeg(i,f,v){ A._calc.segments[i][f]=(f==='filamentId')?(v||null):v; qcRefresh(); }
-  function qcSegAdd(){ A._calc.segments.push({filamentId:null,grams:''}); renderCalcModal(); }
-  function qcSegDel(i){ A._calc.segments.splice(i,1); renderCalcModal(); }
-  function qcTime(){ A._calc.timeH=calc.toHours(document.getElementById('qc-th').value,document.getElementById('qc-tm').value); qcRefresh(); }
-  function qcRefresh(){ const t=A._calc,c=calc.costCustom(t),unit=calc.round500(calc.suggestPrice(c.total)),qty=+t.qty||1; const s=(i,v)=>{const e=document.getElementById(i);if(e)e.innerHTML=v;};
-    s('qd-fil',fmt(c.plastico));s('qd-luz',fmt(c.electricidad));s('qd-maq',fmt(c.amortizacion));s('qd-op',fmt(c.operario));s('qd-emp',fmt(c.empaque));s('qd-fal',fmt(c.fallos));s('qd-cost',fmt(c.total));s('qd-unit',fmt(unit));s('qd-q',qty);s('qd-tot',fmt(unit*qty)); const N=Math.max(1,+t.unitsPerPlate||1),pl=Math.ceil(qty/N); s('qd-placas','Placas necesarias: '+pl+' · '+calc.hm((+t.timeH||0)*pl)+' de impresión total'); }
-  function qCalcAdd(){ const t=A._calc; const unit=calc.round500(calc.suggestPrice(calc.costCustom(t).total)); const qty=+t.qty||1;
-    const spec={name:t.name,segments:JSON.parse(JSON.stringify(t.segments)),timeH:t.timeH,postMin:t.postMin,qty:qty,unitsPerPlate:t.unitsPerPlate||1};
-    const item={name:t.name||'Pieza personalizada',qty:qty,unitPrice:unit,productId:null,calc:spec};
-    if(t._editIdx>=0){ A._quote.items[t._editIdx]=item; } else { A._quote.items.push(item); }
-    renderQuoteModal(); }
+  function qcTime(){A._calc.timeH=calc.toHours(document.getElementById('qc-th').value,document.getElementById('qc-tm').value);qcRefresh();}
+  function qcRefresh(){const c=calc.costPiece(A._calc),price=calc.round500(calc.suggestPrice(c.total));const s=(i,v)=>{const e=document.getElementById(i);if(e)e.innerHTML=v;};s('qc-cost',fmt(c.total));s('qc-price',fmt(price));}
+  function qCalcOpen(){A._calc={name:'',material:'PLA',filamentId:null,grams:'',timeH:0,colors:1,postMin:5};renderCalcModal();}
+  function qCalcAdd(){const t=A._calc;const price=calc.round500(calc.suggestPrice(calc.costPiece(t).total));A._quote.items.push({name:t.name||'Pieza personalizada',qty:1,unitPrice:price,productId:null});renderQuoteModal();}
+
   /* ---------- PLANIFICACIÓN ---------- */
   function vPlan(){
     const cap=DB.params.dayCapacityH, weeks=[...new Set(DB.schedule.map(d=>d.week))];
     let html=`<div class="row between"><h1 class="page">Planificación</h1><button class="btn ghost sm" onclick="A.planSync()">↻ Sincronizar plan</button></div><p class="sub">Toca «Ver detalle» en cada día para ver qué imprimir y qué hacer.</p>`;
     html+=`<div class="card" style="margin-bottom:14px"><b>Rutina del día (8:00–21:00)</b><div class="muted" style="margin-top:6px">① 8:00 inicia la impresión más larga (debe partir antes de las 10:00 para terminar a tiempo). ② ~13:00 una impresión media. ③ ~17:00 un batch corto que cierre antes de las 21:00. ④ Antes de cerrar, retira las piezas y deja la placa lista para mañana.</div></div>`;
-    const pend=(DB.orders||[]).filter(o=>o.estado!=='listo'); if(pend.length) html+=`<div class="card" style="border-left:4px solid var(--coral);margin-bottom:14px"><b>Tienes ${pend.length} pedido(s) en cola</b><div class="muted" style="margin-top:4px">Tienen prioridad sobre la reposición de stock. <button class="linkish" onclick="A.go('pedidos')">Ver pedidos →</button></div></div>`;
     weeks.forEach(w=>{
       html+=`<div class="sectiontitle">${esc(w)}</div><div class="grid cards">`;
       DB.schedule.filter(d=>d.week===w).forEach(d=>{
@@ -313,7 +290,7 @@
     const jobs=d.jobs.map((j,i)=>{
       const pr=j.productId?DB.products.find(x=>x.id===j.productId):null;
       const fil=pr&&pr.filamentId?DB.filaments.find(f=>f.id===pr.filamentId):null;
-      const files=pr&&pr.files&&pr.files.length?pr.files.map(f=>`<button class="btn ghost sm" onclick="${f.url?`A.viewUrl('${f.url}','${esc(f.name)}')`:`A.viewFile('${f.id}','${esc(f.name)}')`}">📄 Ver ${esc(f.name)}</button>`).join(' '):'';
+      const files=pr&&pr.files&&pr.files.length?pr.files.map(f=>`<button class="btn ghost sm" onclick="A.viewFile('${f.id}','${esc(f.name)}')">📄 Ver ${esc(f.name)}</button>`).join(' '):'';
       return `<div class="card" style="margin-bottom:10px">
         <div class="row" style="gap:8px"><input value="${esc(j.name)}" style="flex:1" oninput="A._day.jobs[${i}].name=this.value"><input type="number" step="0.1" value="${j.hours}" style="width:64px" oninput="A._day.jobs[${i}].hours=+this.value;A.dayHours()" title="horas"><button class="pill ${j.status==='listo'?'ok':j.status==='imprimiendo'?'warn':'bad'}" style="border:none;cursor:pointer" onclick="A.dayJobStatus(${i})">${j.status}</button></div>
         <textarea placeholder="¿Qué hacer? color, unidades, ajustes de laminado…" style="margin-top:8px;min-height:46px" oninput="A._day.jobs[${i}].desc=this.value">${esc(j.desc||'')}</textarea>
@@ -335,56 +312,6 @@
   function dayJobDel(i){A._day.jobs.splice(i,1);renderDayModal();}
   function dayOpenFile(fid){IDB.openFile(fid).then(ok=>{if(!ok)toast('Archivo no encontrado');});}
   function daySave(){const idx=DB.schedule.findIndex(x=>x.id===A._day.id);DB.schedule[idx]=A._day;save();closeModal();render();toast('Día actualizado');}
-
-  /* ---------- PEDIDOS (cola de producción) ---------- */
-  function vPedidos(){
-    const cap=DB.params.dayCapacityH; const today=new Date(); today.setHours(0,0,0,0);
-    const list=(DB.orders||[]).slice().sort((x,y)=>(x.fecha||'9999-99-99').localeCompare(y.fecha||'9999-99-99'));
-    let committed=0;
-    const cards=list.map(o=>{
-      const hEach=(o.hoursEach!=null&&o.hoursEach!=='')?+o.hoursEach:(o.productId?((DB.products.find(p=>p.id===o.productId)||{}).timeH||0):0);
-      const hours=hEach*(+o.qty||0), days=Math.max(1,Math.ceil(hours/cap));
-      if(o.estado!=='listo') committed+=hours;
-      let dueTxt='sin fecha', startTxt='', risk='ok', dleft=null;
-      if(o.fecha){ const due=new Date(o.fecha+'T00:00:00'); dleft=Math.round((due-today)/86400000); const start=new Date(due); start.setDate(start.getDate()-days);
-        dueTxt=due.toLocaleDateString('es-CL'); startTxt='Empezar antes del '+start.toLocaleDateString('es-CL');
-        risk=(o.estado!=='listo'&&start<today)?'bad':((o.estado!=='listo'&&dleft<=3)?'warn':'ok'); }
-      const col=risk==='bad'?'var(--coral)':risk==='warn'?'var(--terra)':'var(--niebla)';
-      const pname=esc(o.productName||(o.productId?((DB.products.find(p=>p.id===o.productId)||{}).name||''):'')||'Producto');
-      return `<div class="card" style="border-left:4px solid ${col}"><div class="row between"><h3>${esc(o.cliente||'Cliente')}</h3><span class="muted">${dueTxt}</span></div>
-        <div class="muted">${pname} × ${o.qty}</div>
-        <div class="row between" style="margin-top:6px"><span class="tag">${calc.hm(hours)} · ${days} día(s)</span><button class="pill ${o.estado==='listo'?'ok':o.estado==='en producción'?'warn':'bad'}" style="border:none;cursor:pointer" onclick="A.orderCycle('${o.id}')">${esc(o.estado||'pendiente')}</button></div>
-        ${o.fecha?`<div class="muted" style="margin-top:6px;color:${risk==='bad'?'var(--coral)':'var(--pizarra)'}">${risk==='bad'?'⚠ ':''}${startTxt}${dleft!=null?` · faltan ${dleft} día(s)`:''}</div>`:''}
-        <div class="row" style="margin-top:8px"><button class="btn ghost sm" onclick="A.editOrder('${o.id}')">Editar</button></div></div>`;
-    }).join('');
-    return `<div class="row between"><h1 class="page">Pedidos</h1><button class="btn primary" onclick="A.editOrder()">+ Pedido</button></div>
-      <p class="sub">Cola de producción ordenada por fecha de entrega. Tienen prioridad sobre la reposición de stock.</p>
-      <div class="card"><div class="row between"><span>Horas comprometidas (pendientes)</span><b>${calc.hm(committed)}</b></div><div class="row between"><span>≈ días de producción (${cap} h/día)</span><b>${Math.ceil(committed/cap)}</b></div></div>
-      <div class="grid cards" style="margin-top:14px">${cards||'<div class="empty">Sin pedidos. Agrega uno con "+ Pedido".</div>'}</div>`;
-  }
-  function editOrder(id){
-    const o=id?JSON.parse(JSON.stringify(DB.orders.find(x=>x.id===id))):{cliente:'',productId:'',productName:'',qty:1,hoursEach:'',fecha:'',estado:'pendiente'};
-    const prodOpts=`<option value="">— producto libre —</option>`+DB.products.map(p=>`<option value="${p.id}" ${o.productId===p.id?'selected':''}>${esc(p.name)} (${calc.hm(p.timeH)})</option>`).join('');
-    modal(`<h2>${id?'Editar':'Nuevo'} pedido</h2>
-      <label class="field">Cliente<input id="o-cli" list="o-clilist" value="${esc(o.cliente)}"><datalist id="o-clilist">${DB.clients.map(c=>`<option value="${esc(c.name)}">`).join('')}</datalist></label>
-      <label class="field" style="margin-top:8px">Producto del catálogo<select id="o-prod" onchange="A.orderProd(this.value)">${prodOpts}</select></label>
-      <label class="field" style="margin-top:8px">…o nombre libre<input id="o-pname" value="${esc(o.productName)}" placeholder="ej: Llavero personalizado"></label>
-      <div class="formgrid" style="margin-top:8px">
-        <label class="field">Cantidad<input id="o-qty" type="number" min="1" value="${o.qty}"></label>
-        <label class="field">Horas por unidad<input id="o-h" type="number" step="0.1" value="${o.hoursEach}" placeholder="auto del producto"></label>
-        <label class="field">Fecha de entrega<input id="o-fecha" type="date" value="${o.fecha||''}"></label>
-        <label class="field">Estado<select id="o-estado"><option ${(o.estado||'pendiente')==='pendiente'?'selected':''}>pendiente</option><option ${o.estado==='en producción'?'selected':''}>en producción</option><option ${o.estado==='listo'?'selected':''}>listo</option></select></label>
-      </div>
-      <div class="row between" style="margin-top:14px"><div>${id?`<button class="linkish" onclick="A.delOrder('${id}')">Eliminar</button>`:''}</div>
-        <div class="row"><button class="btn ghost" onclick="A.closeModal()">Cancelar</button><button class="btn primary" onclick="A.saveOrder('${id||''}')">Guardar</button></div></div>`);
-  }
-  function orderProd(pid){ const p=DB.products.find(x=>x.id===pid); if(p){ const h=document.getElementById('o-h'); if(h&&!h.value)h.value=p.timeH; const pn=document.getElementById('o-pname'); if(pn&&!pn.value)pn.value=p.name; } }
-  function saveOrder(id){ const g=i=>document.getElementById(i).value;
-    const o={cliente:g('o-cli').trim()||'Cliente',productId:g('o-prod')||'',productName:g('o-pname').trim(),qty:num(g('o-qty'))||1,hoursEach:g('o-h')===''?'':num(g('o-h')),fecha:g('o-fecha'),estado:g('o-estado')};
-    if(id){Object.assign(DB.orders.find(x=>x.id===id),o);}else{o.id=window.uid();o.createdAt=Date.now();DB.orders.push(o);}
-    save();closeModal();render();toast('Pedido guardado'); }
-  function delOrder(id){DB.orders=DB.orders.filter(x=>x.id!==id);save();closeModal();render();toast('Pedido eliminado');}
-  function orderCycle(id){const c={'pendiente':'en producción','en producción':'listo','listo':'pendiente'};const o=DB.orders.find(x=>x.id===id);o.estado=c[o.estado||'pendiente'];save();render();}
 
   /* ---------- AJUSTES ---------- */
   function vAjustes(){const p=DB.params,b=p.business;const f=(id,lbl,val,step)=>`<label class="field">${lbl}<input id="${id}" type="number" ${step?`step="${step}"`:''} value="${val}"></label>`;const bks=(window.listBackups?window.listBackups():[]).slice().reverse();
@@ -436,24 +363,24 @@
     for(const d of list){
       if(DB.products.some(p=>p.name===d.name)) continue;
       const prod={id:window.uid(),name:d.name,material:d.material,grams:d.grams,timeH:d.timeH,colors:d.colors,postMin:d.postMin,packOverride:null,price:null,stock:0,filamentId:null,imageId:null,files:[]};
-      try{ if(d.img) prod.imageId=await IDB.putFile(dataURLtoBlob(d.img),{name:d.name+'.png',kind:'image'}); if(d.stl){ const fid=await IDB.putFile(dataURLtoBlob(d.stl),{name:d.stlName,kind:'stl'}); prod.files.push({id:fid,name:d.stlName}); } if(d.files) d.files.forEach(f=>prod.files.push({name:f.name,url:f.url})); }catch(e){}
+      try{ prod.imageId=await IDB.putFile(dataURLtoBlob(d.img),{name:d.name+'.png',kind:'image'}); const fid=await IDB.putFile(dataURLtoBlob(d.stl),{name:d.stlName,kind:'stl'}); prod.files.push({id:fid,name:d.stlName}); }catch(e){}
       DB.products.push(prod); added++;
     }
     save(); render(); toast(added?('Agregado: '+added+' diseño(s) Ayünka'):'Ya estaban en tu catálogo');
   }
 
   /* ---------- ROUTER ---------- */
-  const VIEWS={inicio:vInicio,productos:vProductos,placas:vPlacas,filamentos:vFilamentos,clientes:vClientes,cotizaciones:vCotiz,pedidos:vPedidos,plan:vPlan,ajustes:vAjustes};
+  const VIEWS={inicio:vInicio,productos:vProductos,placas:vPlacas,filamentos:vFilamentos,clientes:vClientes,cotizaciones:vCotiz,plan:vPlan,ajustes:vAjustes};
   function render(){let id=(location.hash.replace('#/','')||'inicio');if(!VIEWS[id])id='inicio';renderTabs(id);$('#view').innerHTML=VIEWS[id]();hydrate();window.scrollTo(0,0);}
   window.addEventListener('hashchange',render);
   $('#menuBtn').addEventListener('click',()=>$('#tabs').classList.toggle('open'));
 
   window.A={go,closeModal,
-    addDesigns,editProduct,renderProductModal,prodRefresh,prodTime,prodImg,prodAddFiles,prodOpenFile,viewFile,viewUrl,prodDelFile,saveProduct,delProduct,
+    addDesigns,editProduct,renderProductModal,prodRefresh,prodTime,prodImg,prodAddFiles,prodOpenFile,viewFile,prodDelFile,saveProduct,delProduct,
     editFil,saveFil,delFil,filAuto,editPlate,renderPlateModal,plateAdd,plateQty,plateDel,plateRefresh,savePlate,delPlate,printPlate,
     editClient,saveClient,delClient,quoteForClient,
-    editQuote,renderQuoteModal,qPickClient,qCalcOpen,qCalcEdit,renderCalcModal,qcSeg,qcSegAdd,qcSegDel,qcTime,qcRefresh,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
-    planSync,editOrder,orderProd,saveOrder,delOrder,orderCycle,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,syncSave,syncOff,_syncNote,restoreBk,expData,impData,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null};
+    editQuote,renderQuoteModal,qPickClient,qCalcOpen,renderCalcModal,qcTime,qcRefresh,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
+    planSync,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,syncSave,syncOff,_syncNote,restoreBk,expData,impData,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null};
 
   window.__render=render;
   try{ window.__syncCfgRaw = JSON.stringify((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'null')||{}).firebase||'',null,0); }catch(e){}

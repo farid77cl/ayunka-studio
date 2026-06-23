@@ -38,5 +38,19 @@
   // tiempo total de impresión de un set de items [{productId, qty}] o de una cotización
   function printHoursOf(items){let h=0;(items||[]).forEach(it=>{const pr=window.DB.products.find(p=>p.id===it.productId);if(pr)h+=(+pr.timeH||0)*(+it.qty||0);});return h;}
   function productionDays(hours){const cap=P().dayCapacityH||13; return Math.max(1,Math.ceil(hours/cap));}
-  window.calc={costPiece,suggestPrice,round500,priceOf,marginPct,costPlate,amortPerH,elecPerH,kgPriceFor,purgeFactor,hm,toHours,printHoursOf,productionDays};
+  function kgPrice(filamentId,material){ if(filamentId){const f=(window.DB.filaments||[]).find(x=>x.id===filamentId); if(f&&f.rollGrams) return f.rollPrice/f.rollGrams*1000;} return material==='PETG'?P().petgPrice:P().plaPrice; }
+  function costCustom(o){
+    const N=Math.max(1,+o.unitsPerPlate||1);
+    let unitFil=0; (o.segments||[]).forEach(s=>{ unitFil += (+s.grams||0)/1000*kgPrice(s.filamentId,s.material||'PLA'); });
+    const plastico=unitFil*N;                          // filamento de las N unidades de la placa
+    const electricidad=(+o.timeH||0)*elecPerH();       // tiempo = el de la placa completa (compartido)
+    const amortizacion=(+o.timeH||0)*amortPerH();
+    const operario=((P().prepMin||0)+N*(+o.postMin||0))/60*P().laborH; // preparación 1 vez + post por unidad
+    const empaque=N*(o.empaque!=null?+o.empaque:P().pack);
+    const basePlate=plastico+electricidad+operario+amortizacion+empaque;
+    const fallosPlate=basePlate*P().failRate, totalPlate=basePlate+fallosPlate;
+    // devuelve valores POR UNIDAD (placa / N)
+    return {plastico:plastico/N,electricidad:electricidad/N,amortizacion:amortizacion/N,operario:operario/N,empaque:empaque/N,fallos:fallosPlate/N,base:basePlate/N,total:totalPlate/N,N};
+  }
+  window.calc={costPiece,costCustom,kgPrice,suggestPrice,round500,priceOf,marginPct,costPlate,amortPerH,elecPerH,kgPriceFor,purgeFactor,hm,toHours,printHoursOf,productionDays};
 })();

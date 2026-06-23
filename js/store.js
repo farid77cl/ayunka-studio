@@ -35,6 +35,7 @@
     clients: [],
     plates: [],
     quotes: [],
+    orders: [],
     schedule: seedSchedule(),
     seq: { quote: 1 }
   };
@@ -74,6 +75,7 @@
   for (const k in DEFAULTS.params){ if (!(k in DB.params)) DB.params[k] = DEFAULTS.params[k]; }
   (DB.products||[]).forEach(pr=>{ if(!('filamentId' in pr))pr.filamentId=null; if(!('imageId' in pr))pr.imageId=null; if(!('files' in pr))pr.files=[]; });
   (DB.products||[]).forEach(pr=>{ if(!('stock' in pr))pr.stock=0; if(!('postMin' in pr))pr.postMin=0; });
+  if(!DB.orders) DB.orders=[];
   if(_fresh && !('_seed' in DB)) DB._seed=true;
 
   window.DB = DB;
