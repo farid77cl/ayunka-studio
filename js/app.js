@@ -84,7 +84,7 @@
         <label class="field" style="margin-top:8px">Foto del producto<input type="file" accept="image/*" onchange="A.prodImg(this)"></label>${(p.imageUrl||p.imageId)?`<button class="linkish" style="margin-top:6px" onclick="A.prodDelImg()">🗑️ Quitar foto</button>`:''}</div></div>
       <div class="formgrid" style="margin-top:10px">
         <label class="field">Material<select id="f-mat" onchange="A._prod.material=this.value;A.prodRefresh()">${matOptions(p.material)}</select></label>
-        <label class="field">Filamento (marca/precio)<select id="f-fil" onchange="A._prod.filamentId=this.value||null;A.prodRefresh()">${filOpts}</select></label>
+        ${(+p.colors>=2)?'':`<label class="field">Filamento (marca/precio)<select id="f-fil" onchange="A._prod.filamentId=this.value||null;A.prodRefresh()">${filOpts}</select></label>`}
         <label class="field">Peso (g)${(+p.colors>=2)?' <span class=\'muted\'>(suma de colores)</span>':''}<input id="f-grams" type="number" ${(+p.colors>=2)?'readonly':''} value="${p.grams}" oninput="A._prod.grams=this.value;A.prodRefresh()"></label>
         <label class="field">Tiempo impresión<div class="row" style="gap:6px"><input id="f-th" type="number" min="0" value="${Math.floor((+p.timeH||0)+1e-9)}" oninput="A.prodTime()" style="width:62px"><span class="muted">h</span><input id="f-tm" type="number" min="0" max="59" value="${Math.round((((+p.timeH||0)%1))*60)}" oninput="A.prodTime()" style="width:62px"><span class="muted">min</span></div></label>
         <label class="field">N° de colores<input id="f-colors" type="number" min="1" value="${p.colors}" onchange="A.prodColors(this.value)"></label>
