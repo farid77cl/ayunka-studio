@@ -250,14 +250,14 @@
       <div class="row between" style="margin-top:14px"><button class="linkish" onclick="A.qDel(${i});A.renderQuoteModal()">Eliminar</button><div class="row"><button class="btn ghost" onclick="A.renderQuoteModal()">Volver</button><button class="btn primary" onclick="A.qSaveItem(${i})">Guardar</button></div></div>`);
   }
   function qSaveItem(i){ const it=A._quote.items[i]; it.name=$('#ei-name').value.trim()||it.name; it.qty=num($('#ei-qty').value)||1; it.unitPrice=num($('#ei-price').value); renderQuoteModal(); }
-  function qToCalc(i){ const it=A._quote.items[i]; A._calc={name:it.name||'',segments:[{filamentId:null,grams:''}],timeH:0,postMin:5,qty:it.qty||1,unitsPerPlate:1,empaque:null,_editIdx:i}; renderCalcModal(); }
-  function qCalcOpen(){ A._calc={name:'',segments:[{filamentId:null,grams:''}],timeH:0,postMin:5,qty:1,unitsPerPlate:1,empaque:null,_editIdx:-1}; renderCalcModal(); }
+  function qToCalc(i){ const it=A._quote.items[i]; A._calc={name:it.name||'',segments:[{filamentId:null,grams:''}],timeH:0,postMin:5,qty:it.qty||1,unitsPerPlate:1,empaque:null,priceOverride:(it.unitPrice||null),_editIdx:i}; renderCalcModal(); }
+  function qCalcOpen(){ A._calc={name:'',segments:[{filamentId:null,grams:''}],timeH:0,postMin:5,qty:1,unitsPerPlate:1,empaque:null,priceOverride:null,_editIdx:-1}; renderCalcModal(); }
   function qCalcEdit(i){ const it=A._quote.items[i]; A._calc=JSON.parse(JSON.stringify(it.calc)); A._calc._editIdx=i; if(A._calc.qty==null)A._calc.qty=it.qty||1; renderCalcModal(); }
   function renderCalcModal(){
     const t=A._calc;
     const filSel=(sel)=>`<option value="">PLA por defecto</option>`+DB.filaments.map(f=>`<option value="${f.id}" ${sel===f.id?'selected':''}>${esc(f.color)} · ${esc(f.marca)} (${fmt(f.rollPrice/f.rollGrams*1000)}/kg)</option>`).join('');
     const segs=t.segments.map((s,i)=>`<div class="row" style="gap:6px;margin:3px 0"><select onchange="A.qcSeg(${i},'filamentId',this.value)" style="flex:1">${filSel(s.filamentId)}</select><input type="number" placeholder="g" value="${s.grams}" style="width:74px" oninput="A.qcSeg(${i},'grams',this.value)">${t.segments.length>1?`<button class="linkish" onclick="A.qcSegDel(${i})">x</button>`:''}</div>`).join('');
-    const c=calc.costCustom(t), unit=calc.round500(calc.suggestPrice(c.total)), qty=+t.qty||1;
+    const c=calc.costCustom(t), qty=+t.qty||1, sug=calc.round500(calc.suggestPrice(c.total)), eff=(t.priceOverride!=null&&t.priceOverride!=='')?+t.priceOverride:sug, marg=eff>0?(eff-c.total)/eff:0;
     modal(`<h2>${t._editIdx>=0?'Editar':'Calcular'} pieza</h2>
       <label class="field">Descripción<input id="qc-name" value="${esc(t.name)}" oninput="A._calc.name=this.value" placeholder="ej: Llavero personalizado"></label>
       <div class="sectiontitle">Filamento por color <span class="muted">(gramos TOTALES de la placa, como en el slicer)</span></div>${segs}
@@ -278,8 +278,10 @@
         <div class="row between"><span>Empaque</span><b id="qd-emp">${fmt(c.empaque)}</b></div>
         <div class="row between"><span>Margen por fallas</span><b id="qd-fal">${fmt(c.fallos)}</b></div>
         <div class="row between" style="border-top:1px solid var(--line);margin-top:4px;padding-top:4px"><span>Costo unitario</span><b id="qd-cost">${fmt(c.total)}</b></div>
-        <div class="row between"><span>Precio sugerido (unidad)</span><b id="qd-unit" style="color:var(--coral)">${fmt(unit)}</b></div>
-        <div class="row between" style="font-size:17px"><span>Total (× <span id="qd-q">${qty}</span>)</span><b id="qd-tot" style="color:var(--coral)">${fmt(unit*qty)}</b></div>
+        <div class="row between"><span>Precio sugerido (unidad)</span><b id="qd-sug" style="color:var(--coral)">${fmt(sug)}</b></div>
+        <div class="row between" style="align-items:center;margin-top:2px"><span>Precio de venta (unidad)</span><input id="qd-price" type="number" value="${eff}" oninput="A.qcPrice(this.value)" style="width:110px;text-align:right"></div>
+        <div class="row between"><span>Margen</span><b id="qd-marg" style="color:${marg>=0.4?'var(--ok)':marg>=0.2?'var(--terra)':'var(--coral)'}">${pct(marg)} · ${fmt(eff-c.total)}/u</b></div>
+        <div class="row between" style="font-size:17px"><span>Total (× <span id="qd-q">${qty}</span>)</span><b id="qd-tot" style="color:var(--coral)">${fmt(eff*qty)}</b></div>
         <div class="muted" id="qd-placas">Placas necesarias: ${Math.ceil(qty/Math.max(1,+t.unitsPerPlate||1))} · ${calc.hm((+t.timeH||0)*Math.ceil(qty/Math.max(1,+t.unitsPerPlate||1)))} de impresión total</div>
       </div>
       <div class="row between"><button class="btn ghost" onclick="A.renderQuoteModal()">Volver</button><button class="btn coral" onclick="A.qCalcAdd()">${t._editIdx>=0?'Guardar cambios':'Agregar a la cotización'}</button></div>`);
@@ -288,10 +290,14 @@
   function qcSegAdd(){ A._calc.segments.push({filamentId:null,grams:''}); renderCalcModal(); }
   function qcSegDel(i){ A._calc.segments.splice(i,1); renderCalcModal(); }
   function qcTime(){ A._calc.timeH=calc.toHours(document.getElementById('qc-th').value,document.getElementById('qc-tm').value); qcRefresh(); }
-  function qcRefresh(){ const t=A._calc,c=calc.costCustom(t),unit=calc.round500(calc.suggestPrice(c.total)),qty=+t.qty||1; const s=(i,v)=>{const e=document.getElementById(i);if(e)e.innerHTML=v;};
-    s('qd-fil',fmt(c.plastico));s('qd-luz',fmt(c.electricidad));s('qd-maq',fmt(c.amortizacion));s('qd-op',fmt(c.operario));s('qd-emp',fmt(c.empaque));s('qd-fal',fmt(c.fallos));s('qd-cost',fmt(c.total));s('qd-unit',fmt(unit));s('qd-q',qty);s('qd-tot',fmt(unit*qty)); const N=Math.max(1,+t.unitsPerPlate||1),pl=Math.ceil(qty/N); s('qd-placas','Placas necesarias: '+pl+' · '+calc.hm((+t.timeH||0)*pl)+' de impresión total'); }
-  function qCalcAdd(){ const t=A._calc; const unit=calc.round500(calc.suggestPrice(calc.costCustom(t).total)); const qty=+t.qty||1;
-    const spec={name:t.name,segments:JSON.parse(JSON.stringify(t.segments)),timeH:t.timeH,postMin:t.postMin,qty:qty,unitsPerPlate:t.unitsPerPlate||1,empaque:t.empaque};
+  function qcRefresh(){ const t=A._calc,c=calc.costCustom(t),qty=+t.qty||1,sug=calc.round500(calc.suggestPrice(c.total)),eff=(t.priceOverride!=null&&t.priceOverride!=='')?+t.priceOverride:sug,marg=eff>0?(eff-c.total)/eff:0; const s=(i,v)=>{const e=document.getElementById(i);if(e)e.innerHTML=v;};
+    s('qd-fil',fmt(c.plastico));s('qd-luz',fmt(c.electricidad));s('qd-maq',fmt(c.amortizacion));s('qd-op',fmt(c.operario));s('qd-emp',fmt(c.empaque));s('qd-fal',fmt(c.fallos));s('qd-cost',fmt(c.total));s('qd-sug',fmt(sug));s('qd-q',qty);s('qd-tot',fmt(eff*qty));
+    const mg=document.getElementById('qd-marg'); if(mg){mg.style.color=marg>=0.4?'var(--ok)':marg>=0.2?'var(--terra)':'var(--coral)'; mg.innerHTML=pct(marg)+' · '+fmt(eff-c.total)+'/u';}
+    const pe=document.getElementById('qd-price'); if(pe&&(t.priceOverride==null||t.priceOverride==='')) pe.value=sug;
+    const N=Math.max(1,+t.unitsPerPlate||1),pl=Math.ceil(qty/N); s('qd-placas','Placas necesarias: '+pl+' · '+calc.hm((+t.timeH||0)*pl)+' de impresión total'); }
+  function qcPrice(v){ A._calc.priceOverride=(v===''?null:+v); qcRefresh(); }
+  function qCalcAdd(){ const t=A._calc; const sug=calc.round500(calc.suggestPrice(calc.costCustom(t).total)); const unit=(t.priceOverride!=null&&t.priceOverride!=='')?+t.priceOverride:sug; const qty=+t.qty||1;
+    const spec={name:t.name,segments:JSON.parse(JSON.stringify(t.segments)),timeH:t.timeH,postMin:t.postMin,qty:qty,unitsPerPlate:t.unitsPerPlate||1,empaque:t.empaque,priceOverride:t.priceOverride};
     const item={name:t.name||'Pieza personalizada',qty:qty,unitPrice:unit,productId:null,calc:spec};
     if(t._editIdx>=0){ A._quote.items[t._editIdx]=item; } else { A._quote.items.push(item); }
     renderQuoteModal(); }
@@ -477,7 +483,7 @@
     addDesigns,editProduct,renderProductModal,prodRefresh,prodTime,prodImg,prodAddFiles,prodOpenFile,viewFile,viewUrl,prodDelFile,saveProduct,delProduct,
     editFil,saveFil,delFil,filAuto,editPlate,renderPlateModal,plateAdd,plateQty,plateDel,plateRefresh,savePlate,delPlate,printPlate,
     editClient,saveClient,delClient,quoteForClient,
-    editQuote,renderQuoteModal,qPickClient,qEditItem,qSaveItem,qToCalc,qCalcOpen,qCalcEdit,renderCalcModal,qcSeg,qcSegAdd,qcSegDel,qcTime,qcRefresh,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
+    editQuote,renderQuoteModal,qPickClient,qEditItem,qSaveItem,qToCalc,qCalcOpen,qCalcEdit,renderCalcModal,qcSeg,qcSegAdd,qcSegDel,qcTime,qcRefresh,qcPrice,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
     planSync,editOrder,orderProd,saveOrder,delOrder,orderCycle,approveQuote,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,syncSave,syncOff,_syncNote,restoreBk,expData,impData,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null};
 
   window.__render=render;
