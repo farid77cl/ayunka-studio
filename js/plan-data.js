@@ -22,39 +22,44 @@
       J('s1l1','Organizador escritorio #1',3,'1 unidad en crema con acento coral. 0.2mm, 15% relleno.'),
       J('s1l2','Cajita bobinas ×2',3,'2 unidades: una azul niebla, una crema.'),
       J('s1l3','Llaveros ×3 (batch)',1.5,'3 en una sola placa, colores surtidos. Agrupa por color para no cambiar filamento.')
-    ],'Fotografiar piezas de prueba'),
+    ],'Fotografiar piezas de prueba (letra personalizada, caja/organizador, llavero) para el reel de anuncio'),
     D('Sem 1','Mar',[
       J('s1m1','Organizador #2-3',6,'2 unidades más en otros colores de la paleta.'),
       J('s1m2','Cajita agujas ×3',3,'3 unidades; una con iniciales de prueba.'),
       J('s1m3','Saca-costura ×3 (batch)',1.8,'3 en placa, rosa coral/azul/mostaza.')
-    ],'Post "Nace Ayünka Crea"'),
+    ],'IG+FB+TikTok: Post + Reel "Nace Ayünka Crea 🌿" (espejo en las 3 redes, solo orgánico, sin pauta aún)'),
     D('Sem 1','Mié',[
       J('s1x1','Cajita bobinas #3',1.5,'1 unidad, color terracota.'),
       J('s1x2','Letras de prueba ×2',3,'2 nombres cortos multicolor (CFS) para mostrar personalización.'),
       J('s1x3','Llaveros restock',1.5,'Reponer los que más gusten.')
-    ],'Reel timelapse de impresión'),
+    ],'TikTok/Reels: timelapse de impresión + Stories detrás de cámara'),
     D('Sem 1','Jue',[
       J('s1j1','Organizador color 2',3,'Variante de color para fotos de catálogo.'),
       J('s1j2','Portaconos #1',3,'1 unidad azul niebla.'),
       J('s1j3','Cajita agujas extra',1,'1 unidad de respaldo.')
-    ],'Post producto + uso real'),
+    ],'IG+FB: post producto + personalización (antes/después)'),
     D('Sem 1','Vie',[
       J('s1v1','Letras personalizadas',4.5,'Tanda de nombres a pedido (CFS).'),
       J('s1v2','Saca-costura color 2',1.8,'Variante de color.'),
       J('s1v3','Llavero multicolor',1,'1 llavero a dos colores como muestra.')
-    ],'Subir catálogo a WhatsApp'),
-    D('Sem 1','Sáb',[ J('s1s1','Buffer / reimpresión',3,'Reimprime fallas y rellena faltantes de la semana.') ],'Revisar qué generó más interés'),
-    D('Sem 2','Lun',[ J('s2l1','Portaconos #2-3',6,'2 unidades.'), J('s2l2','Exhibidor aro #1',3,'1 unidad crema.') ],'Laminar piezas de Sem 2'),
-    D('Sem 2','Mar',[ J('s2m1','Exhibidor aro #2-3',6,'2 unidades.'), J('s2m2','Soporte celular PETG #1',2.5,'Cambiar a PETG; azul pizarra.') ],'Cambiar a filamento PETG'),
-    D('Sem 2','Mié',[ J('s2x1','Soporte celular #2-3',5,'2 unidades PETG.'), J('s2x2','Restock Sem 1',3,'Reponer top ventas.'), J('s2x3','Llaveros',1.5,'Batch chico.') ],'Reel antes/después'),
-    D('Sem 2','Jue',[ J('s2j1','Organizador extra colores',3,'Más variantes.'), J('s2j2','Portaconos restock',3,''), J('s2j3','Saca-costura',1.8,'') ],'Post producto Crea'),
-    D('Sem 2','Vie',[ J('s2v1','Exhibidor color 2',3,''), J('s2v2','Letras a pedido',3,''), J('s2v3','Batch chicos',1.5,'') ],'Difusión WhatsApp'),
-    D('Sem 2','Sáb',[ J('s2s1','Buffer / reimpresión',3,'') ],'Resumen de ventas'),
+    ],'Cargar catálogo de WhatsApp por categoría (letras, cajas, llaveros)'),
+    D('Sem 1','Sáb',[ J('s1s1','Buffer / reimpresión',3,'Reimprime fallas y rellena faltantes de la semana.') ],'Revisar qué generó más interés (alcance/guardados) antes de iniciar la pauta paga'),
+    D('Sem 2','Lun',[ J('s2l1','Portaconos #2-3',6,'2 unidades.'), J('s2l2','Exhibidor aro #1',3,'1 unidad crema.') ],'Laminar piezas de Sem 2 · Iniciar Meta Ads (IG+FB), tráfico al catálogo de WhatsApp'),
+    D('Sem 2','Mar',[ J('s2m1','Exhibidor aro #2-3',6,'2 unidades.'), J('s2m2','Soporte celular PETG #1',2.5,'Cambiar a PETG; azul pizarra.') ],'Cambiar a filamento PETG · Grabar timelapse para TikTok'),
+    D('Sem 2','Mié',[ J('s2x1','Soporte celular #2-3',5,'2 unidades PETG.'), J('s2x2','Restock Sem 1',3,'Reponer top ventas.'), J('s2x3','Llaveros',1.5,'Batch chico.') ],'Reel antes/después (IG + espejo TikTok)'),
+    D('Sem 2','Jue',[ J('s2j1','Organizador extra colores',3,'Más variantes.'), J('s2j2','Portaconos restock',3,''), J('s2j3','Saca-costura',1.8,'') ],'Post producto Crea (IG+FB)'),
+    D('Sem 2','Vie',[ J('s2v1','Exhibidor color 2',3,''), J('s2v2','Letras a pedido',3,''), J('s2v3','Batch chicos',1.5,'') ],'Difusión WhatsApp · Revisar CPC/alcance de la pauta paga'),
+    D('Sem 2','Sáb',[ J('s2s1','Buffer / reimpresión',3,'') ],'Resumen de ventas semanal · ajustar pauta según resultados'),
     D('Sem 3','Lun',[ J('s3l1','Porta-ovillos #1',6,'Ancla grande; parte a las 8:00. Rosa coral.'), J('s3l2','Cajita agujas restock',1,'') ],'Laminar anclas grandes'),
-    D('Sem 3','Mar',[ J('s3m1','Cajita costurera #1',5,'Ancla; crema con acento coral.'), J('s3m2','Cajita bobinas restock',1.5,''), J('s3m3','Llaveros',1.5,'') ],'Reel ancla grande'),
-    D('Sem 3','Mié',[ J('s3x1','Mini estantería #1',6,'Ancla; parte temprano.'), J('s3x2','Saca-costura',1.8,'') ],'Post pieza premium'),
+    D('Sem 3','Mar',[ J('s3m1','Cajita costurera #1',5,'Ancla; crema con acento coral.'), J('s3m2','Cajita bobinas restock',1.5,''), J('s3m3','Llaveros',1.5,'') ],'Reel ancla grande (IG + TikTok)'),
+    D('Sem 3','Mié',[ J('s3x1','Mini estantería #1',6,'Ancla; parte temprano.'), J('s3x2','Saca-costura',1.8,'') ],'Post pieza premium (IG+FB) · iniciar boost de TikTok Ads sobre el timelapse top'),
     D('Sem 3','Jue',[ J('s3j1','Porta-ovillos #2',6,'2da unidad.'), J('s3j2','Batch chicos',1.5,'') ],'Fotos en contexto'),
-    D('Sem 3','Vie',[ J('s3v1','Cajita costurera #2',5,''), J('s3v2','Organizador restock',3,'') ],'Cierre de catálogo'),
-    D('Sem 3','Sáb',[ J('s3s1','Mini estantería #2',6,'') ],'Encuesta próximos SKUs')
+    D('Sem 3','Vie',[ J('s3v1','Cajita costurera #2',5,''), J('s3v2','Organizador restock',3,'') ],'Cierre de catálogo · revisar costo por resultado de la pauta'),
+    D('Sem 3','Sáb',[ J('s3s1','Mini estantería #2',6,'') ],'Preparar contenido de cierre (Semana 4): recopilatorio + encuesta'),
+    D('Sem 4','Lun',[ J('s4l1','Restock top ventas #1',3,'Reponer los productos con más pedidos de Sem 1-3.') ],'Grabar reel recopilatorio "lo que más gustó"'),
+    D('Sem 4','Mar',[ J('s4m1','Restock top ventas #2',3,'') ],'IG+FB: post-resumen del lanzamiento + encuesta en Stories (próximos productos a producir)'),
+    D('Sem 4','Mié',[ J('s4x1','Batch chicos (llaveros/letras)',1.5,'') ],'TikTok: video recopilatorio de la campaña'),
+    D('Sem 4','Jue',[ J('s4j1','Restock según encuesta',3,'Ajustar según lo que pidió la encuesta de Stories.') ],'Último refuerzo de pauta paga (Meta + TikTok) sobre la pieza de mejor desempeño'),
+    D('Sem 4','Vie',[ J('s4v1','Buffer / reimpresión',3,'') ],'Cerrar informe de resultados de campaña: ventas por producto, alcance, costo por resultado')
   ];
 })();
