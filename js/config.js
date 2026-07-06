@@ -9,7 +9,7 @@ window.AYUNKA_CONFIG = {
     messagingSenderId: "538442437172",
     appId: "1:538442437172:web:4bfd8965aabfee0a4bb061"
   },
-  syncEmail: "farid.abara.espinoza@gmail.com",
+  workspace: "ayunka",
   supabase: {
     url: "https://ncuvdpydwnepbysadoux.supabase.co",
     key: "sb_publishable_TXHodoTSMeCCPBvX86UyJQ_FvwUD2sJ",
