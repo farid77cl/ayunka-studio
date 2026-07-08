@@ -574,14 +574,28 @@
   function impData(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=e=>{const fr=new FileReader();fr.onload=()=>{try{window.importDB(fr.result);}catch(x){toast('Archivo inválido');}};fr.readAsText(e.target.files[0]);};i.click();}
 
   function expCfg(){
-    const sync=JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'null');
-    const supa=JSON.parse(localStorage.getItem('ayunka-supa-cfg')||'null');
-    const cfg={ _tipo:'ayunka-config', _fecha:new Date().toISOString(),
-      sync: sync || (window.AYUNKA_CONFIG?{firebase:window.AYUNKA_CONFIG.firebase,workspace:'ayunka',email:window.AYUNKA_CONFIG.syncEmail||'',password:''}:null),
-      supabase: supa || (window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.supabase)||null };
+    const AC=window.AYUNKA_CONFIG||{};
+    const ls=k=>{ try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;} };
+    const sls=ls('ayunka-sync-cfg')||{}, pls=ls('ayunka-supa-cfg')||{};
+    // FIREBASE / sync: combina lo guardado con lo horneado (guardado manda)
+    const firebase = { ...(AC.firebase||{}), ...(sls.firebase||{}) };
+    const sync = {
+      firebase,
+      workspace: sls.workspace || 'ayunka',
+      email: sls.email || AC.syncEmail || '',
+      password: sls.password || ''
+    };
+    // SUPABASE: combina lo guardado con lo horneado (guardado manda)
+    const supabase = {
+      url: pls.url || (AC.supabase&&AC.supabase.url) || '',
+      key: pls.key || (AC.supabase&&AC.supabase.key) || '',
+      bucket: pls.bucket || (AC.supabase&&AC.supabase.bucket) || 'archivos'
+    };
+    const cfg={ _tipo:'ayunka-config', _app:'Ayünka Studio', _fecha:new Date().toISOString(), sync, supabase };
     const blob=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ayunka-config.json';a.click();
-    toast('Configuración exportada · guárdala en un lugar privado');
+    const faltan=[]; if(!firebase.projectId)faltan.push('Firebase'); if(!supabase.url||!supabase.key)faltan.push('Supabase');
+    toast(faltan.length?('Exportado, pero falta configurar: '+faltan.join(', ')):'Configuración exportada (Firebase + Supabase) · guárdala en privado');
   }
   function impCfg(){
     const i=document.createElement('input');i.type='file';i.accept='.json';
