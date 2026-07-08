@@ -539,13 +539,18 @@
       <div class="row" style="margin-top:16px"><button class="btn primary" onclick="A.saveParams()">Guardar ajustes</button></div></div>
       <div class="card" style="margin-top:14px"><div class="sectiontitle" style="margin-top:0">Datos</div>
         <div class="row"><button class="btn ghost sm" onclick="A.expData()">Exportar (JSON)</button><button class="btn ghost sm" onclick="A.impData()">Importar</button><button class="btn ghost sm" onclick="if(confirm('¿Borrar todo y volver a los datos de ejemplo?'))A.reset()">Restablecer</button></div>
+        <div class="sectiontitle" style="margin-top:10px">Configuración y llaves</div>
+        <div class="muted" style="margin-bottom:6px">Respaldo de tus claves de Firebase y Supabase para no reconfigurar en cada equipo. Guárdalo en un lugar privado.</div>
+        <div class="row"><button class="btn ghost sm" onclick="A.expCfg()">Exportar configuración</button><button class="btn ghost sm" onclick="A.impCfg()">Importar configuración</button></div>
         <div class="muted" style="margin-top:8px">Tus datos viven en este dispositivo. Las fotos y STL se guardan aparte (no se incluyen en el respaldo JSON).</div></div>
       <div class="card" style="margin-top:14px"><div class="sectiontitle" style="margin-top:0">Sincronización en la nube (celular ⇄ PC)</div>
         <div class="muted" id="sync-status">Estado: ${window.Sync&&window.Sync.configured()?(window.Sync.isOn()?'conectada':'configurada'):'desactivada'}</div>
         <label class="field" style="margin-top:8px">Config de Firebase (pega el objeto firebaseConfig)<textarea id="sync-cfg" style="min-height:96px" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "appId": "..." }'>${esc(window.__syncCfgRaw||(window.AYUNKA_CONFIG?JSON.stringify(window.AYUNKA_CONFIG.firebase):''))}</textarea></label>
-        <label class="field" style="margin-top:6px">Nombre del espacio (workspace)<input id="sync-ws" value="${esc((window.Sync&&JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'{}').workspace)||(window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.workspace)||'ayunka')}"></label>
+        <label class="field" style="margin-top:6px">Nombre del espacio (workspace)<input id="sync-ws" value="${esc((window.Sync&&JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'{}').workspace)||'ayunka')}"></label>
+        <div class="formgrid" style="margin-top:6px"><label class="field">Tu email (login de sync)<input id="sync-email" type="email" value="${esc((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'{}').email)||(window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.syncEmail)||'')}" placeholder="tucorreo@ejemplo.com"></label>
+        <label class="field">Contraseña de sync<input id="sync-pass" type="password" value="${esc((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'{}').password)||'')}" placeholder="elige una clave"></label></div>
         <div class="row" style="margin-top:10px"><button class="btn primary sm" onclick="A.syncSave()">Activar / guardar</button><button class="btn ghost sm" onclick="A.syncOff()">Desactivar</button></div>
-        <div class="muted" style="margin-top:8px">Crea un proyecto gratis en Firebase, activa Firestore y Autenticación Anónima, pega el firebaseConfig y usa el MISMO nombre de espacio (workspace) en el celular y el PC. Aplica las reglas de seguridad (archivo firestore.rules) para que solo tú accedas. La app debe estar publicada en https. Las fotos se guardan con los datos; para que los STL subidos también se vean en todos lados, configura Supabase abajo.</div></div>
+        <div class="muted" style="margin-top:8px">Crea un proyecto gratis en Firebase, activa Firestore y Autenticación por Email/Contraseña, pega el firebaseConfig y usa el MISMO email y contraseña en el celular y el PC. Aplica las reglas de seguridad (archivo firestore.rules) para que solo tú accedas. La app debe estar publicada en https. Las fotos se guardan con los datos; para que los STL subidos también se vean en todos lados, configura Supabase abajo.</div></div>
       <div class="card" style="margin-top:14px"><div class="sectiontitle" style="margin-top:0">Almacenamiento de archivos en la nube (Supabase)</div>
         <div class="muted" id="supa-status">Estado: ${(window.Supa&&window.Supa.configured())?'configurado ✓':'desactivado'}</div>
         <label class="field" style="margin-top:8px">URL del proyecto<input id="supa-url" value="${esc((JSON.parse(localStorage.getItem('ayunka-supa-cfg')||'{}').url)||(window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.supabase&&window.AYUNKA_CONFIG.supabase.url)||'')}" placeholder="https://xxxx.supabase.co"></label>
@@ -553,15 +558,12 @@
         <label class="field" style="margin-top:6px">Bucket<input id="supa-bucket" value="${esc((JSON.parse(localStorage.getItem('ayunka-supa-cfg')||'{}').bucket)||(window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.supabase&&window.AYUNKA_CONFIG.supabase.bucket)||'archivos')}"></label>
         <div class="row" style="margin-top:10px"><button class="btn primary sm" onclick="A.saveSupa()">Activar / guardar</button><button class="btn ghost sm" onclick="A.supaOff()">Desactivar</button></div>
         <div class="muted" style="margin-top:8px">Crea un proyecto gratis en supabase.com → Storage → bucket PÚBLICO llamado "archivos" → pega aquí la URL y la clave anónima. Desde ahí, las fotos y STL que subas van a la nube y se ven en PC y celular.</div></div>
-      <div class="card" style="margin-top:14px"><div class="sectiontitle" style="margin-top:0">Migración de Archivos</div>
-        <div class="muted">Si tienes imágenes o archivos STL guardados localmente en IndexedDB, súbelos todos a Supabase para que sean accesibles en todos tus dispositivos sincronizados.</div>
-        <div class="row" style="margin-top:10px"><button class="btn primary sm" onclick="A.migrateFiles()">Subir archivos locales a Supabase</button></div></div>
       <div class="card" style="margin-top:14px"><div class="sectiontitle" style="margin-top:0">Copias de seguridad automáticas (este dispositivo)</div>
         <div class="muted">Se guarda una copia cada vez que editas o sincronizas. Puedes volver a cualquiera.</div>
         ${bks.length?bks.map(bk=>`<div class="row between" style="padding:5px 0;border-bottom:1px solid var(--line)"><span>${new Date(bk.t).toLocaleString('es-CL')} <span class="muted">· ${esc(bk.reason)} · ${bk.n} prod · ${bk.f} filam.</span></span><button class="btn ghost sm" onclick="A.restoreBk(${bk.t})">Restaurar</button></div>`).join(''):'<div class="muted" style="margin-top:6px">Aún no hay copias (se crean al usar la app).</div>'}
       </div>`;}
   function parseCfg(t){ t=(t||'').trim().replace(/^(export\s+)?const\s+\w+\s*=\s*/,'').replace(/;\s*$/,''); try{return JSON.parse(t);}catch(e){} try{return (new Function('return ('+t+')'))();}catch(e){} return null; }
-  function syncSave(){ const fb=parseCfg(document.getElementById('sync-cfg').value); if(!fb||!fb.projectId){toast('No pude leer la config de Firebase (pega el objeto firebaseConfig completo)');return;} const ws=document.getElementById('sync-ws').value.trim()||'ayunka'; window.Sync.setCfg(fb,ws); toast('Sincronización configurada · recargando'); setTimeout(()=>location.reload(),800); }
+  function syncSave(){ const fb=parseCfg(document.getElementById('sync-cfg').value); if(!fb||!fb.projectId){toast('No pude leer la config de Firebase (pega el objeto firebaseConfig completo)');return;} const ws=document.getElementById('sync-ws').value.trim()||'ayunka'; const em=document.getElementById('sync-email').value.trim(); const pw=document.getElementById('sync-pass').value; if(!em||!pw){toast('Ingresa tu email y una contraseña para la sincronización');return;} window.Sync.setCfg(fb,ws,em,pw); toast('Sincronización configurada · recargando'); setTimeout(()=>location.reload(),800); }
   function syncOff(){ if(confirm('¿Desactivar la sincronización en la nube?')){ window.Sync.clearCfg(); toast('Sincronización desactivada · recargando'); setTimeout(()=>location.reload(),600);} }
   function _syncNote(m){ const e=document.getElementById('sync-status'); if(e) e.textContent='Estado: '+m; }
   function restoreBk(t){ if(confirm("¿Restaurar esta copia? Tus datos actuales se reemplazan, pero quedan guardados en una copia nueva por si acaso.")) window.restoreBackup(t); }
@@ -571,68 +573,29 @@
   function expData(){const blob=new Blob([window.exportDB()],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ayunka-studio-backup.json';a.click();}
   function impData(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=e=>{const fr=new FileReader();fr.onload=()=>{try{window.importDB(fr.result);}catch(x){toast('Archivo inválido');}};fr.readAsText(e.target.files[0]);};i.click();}
 
-  async function migrateLocalFilesToCloud() {
-    if (!window.Supa || !window.Supa.configured()) {
-      toast("Configura Supabase en Ajustes primero");
-      return;
-    }
-    const products = DB.products;
-    let migratedCount = 0;
-    toast("Buscando y subiendo archivos locales a Supabase…");
-    for (let p of products) {
-      let changed = false;
-      if (p.imageId) {
-        try {
-          const fileRec = await IDB.getFile(p.imageId);
-          if (fileRec && fileRec.blob) {
-            toast(`Subiendo foto de ${p.name}…`);
-            const url = await window.Supa.upload(fileRec.blob, (p.name || 'producto') + '.jpg');
-            p.imageUrl = url;
-            await IDB.delFile(p.imageId);
-            p.imageId = null;
-            changed = true;
-            migratedCount++;
-          }
-        } catch (e) { console.error(e); }
-      }
-      if (p.imageUrl && p.imageUrl.startsWith('data:')) {
-        try {
-          toast(`Subiendo foto de ${p.name}…`);
-          const blob = dataURLtoBlob(p.imageUrl);
-          const url = await window.Supa.upload(blob, (p.name || 'producto') + '.jpg');
-          p.imageUrl = url;
-          changed = true;
-          migratedCount++;
-        } catch (e) { console.error(e); }
-      }
-      if (p.files && p.files.length) {
-        for (let f of p.files) {
-          if (f.id && !f.url) {
-            try {
-              const fileRec = await IDB.getFile(f.id);
-              if (fileRec && fileRec.blob) {
-                toast(`Subiendo archivo ${f.name} de ${p.name}…`);
-                const url = await window.Supa.upload(fileRec.blob, f.name);
-                f.url = url;
-                await IDB.delFile(f.id);
-                delete f.id;
-                changed = true;
-                migratedCount++;
-              }
-            } catch (e) { console.error(e); }
-          }
-        }
-      }
-      if (changed) { save(); }
-    }
-    if (migratedCount > 0) {
-      render();
-      toast(`Migración completada: ${migratedCount} archivo(s) subido(s).`);
-    } else {
-      toast("No se encontraron fotos ni archivos locales.");
-    }
+  function expCfg(){
+    const sync=JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'null');
+    const supa=JSON.parse(localStorage.getItem('ayunka-supa-cfg')||'null');
+    const cfg={ _tipo:'ayunka-config', _fecha:new Date().toISOString(),
+      sync: sync || (window.AYUNKA_CONFIG?{firebase:window.AYUNKA_CONFIG.firebase,workspace:'ayunka',email:window.AYUNKA_CONFIG.syncEmail||'',password:''}:null),
+      supabase: supa || (window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.supabase)||null };
+    const blob=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ayunka-config.json';a.click();
+    toast('Configuración exportada · guárdala en un lugar privado');
   }
-
+  function impCfg(){
+    const i=document.createElement('input');i.type='file';i.accept='.json';
+    i.onchange=e=>{const fr=new FileReader();fr.onload=()=>{ try{
+      const c=JSON.parse(fr.result);
+      let n=0;
+      if(c.sync&&c.sync.firebase&&c.sync.firebase.projectId){ window.Sync.setCfg(c.sync.firebase,c.sync.workspace||'ayunka',c.sync.email||'',c.sync.password||''); n++; }
+      if(c.supabase&&c.supabase.url&&c.supabase.key){ window.Supa.setCfg(c.supabase.url,c.supabase.key,c.supabase.bucket||'archivos'); n++; }
+      if(!n){ toast('El archivo no tiene configuración válida'); return; }
+      toast('Configuración importada · recargando'); setTimeout(()=>location.reload(),900);
+    }catch(x){ toast('Archivo de configuración inválido'); } };
+    fr.readAsText(e.target.files[0]);};
+    i.click();
+  }
   function dataURLtoBlob(durl){const i=durl.indexOf(',');const head=durl.slice(0,i),b=durl.slice(i+1);const mime=(head.match(/:(.*?);/)||[])[1]||'application/octet-stream';const bin=atob(b);const u=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);return new Blob([u],{type:mime});}
   function delProductsNoFile(){ const sinf=DB.products.filter(p=>!(p.files&&p.files.length)); if(!sinf.length){toast("Todos los productos tienen archivo");return;} if(confirm("¿Eliminar "+sinf.length+" producto(s) sin ningún STL/3MF asociado?")){ DB.products=DB.products.filter(p=>p.files&&p.files.length); save(); render(); toast(sinf.length+" producto(s) eliminados"); } }
   function mergeDesign(prod,d){
@@ -678,7 +641,7 @@
     editFil,saveFil,delFil,filAuto,editPlate,renderPlateModal,plateAdd,plateQty,plateDel,plateRefresh,savePlate,delPlate,printPlate,
     editClient,saveClient,delClient,quoteForClient,
     editQuote,renderQuoteModal,qPickClient,qEditItem,qSaveItem,qToCalc,qCalcOpen,qCalcEdit,renderCalcModal,qcSeg,qcSegAdd,qcSegDel,qcTime,qcRefresh,qcPrice,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
-    planSync,editOrder,orderProd,saveOrder,delOrder,orderCycle,approveQuote,waQuote,openVenta,renderVentaModal,vAdd,vAddFree,vItem,vDel,saveVenta,delVenta,openGasto,saveGasto,delGasto,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,saveSupa,supaOff,syncSave,syncOff,_syncNote,restoreBk,expData,impData,migrateFiles:migrateLocalFilesToCloud,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null,_venta:null};
+    planSync,editOrder,orderProd,saveOrder,delOrder,orderCycle,approveQuote,waQuote,openVenta,renderVentaModal,vAdd,vAddFree,vItem,vDel,saveVenta,delVenta,openGasto,saveGasto,delGasto,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,saveSupa,supaOff,syncSave,syncOff,_syncNote,restoreBk,expData,impData,expCfg,impCfg,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null,_venta:null};
 
   window.__render=render;
   try{ window.__syncCfgRaw = JSON.stringify((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'null')||{}).firebase||(window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.firebase)||'',null,0); }catch(e){}
