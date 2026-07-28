@@ -13,7 +13,8 @@
     metricas:  SB+'reportes/semanal-ultimo.json',
     consultas: SB+'reportes/alertas-comentarios.json',
     mensajes:  SB+'reportes/mensajes-pendientes.json',
-    cola:      SB+'reportes/cola-estado.json'
+    cola:      SB+'reportes/cola-estado.json',
+    bitacora:  SB+'reportes/bitacora.json'
   };
   const D={}; let tipo='posts', filtro='todos', sucio=false;
   const esc = s => (s||'').toString().replace(/</g,'&lt;');
@@ -122,6 +123,7 @@
       <button class="btn primary" id="rp_1" onclick="RRSS.rtab('metricas')">📊 Métricas</button>
       <button class="btn ghost"   id="rp_2" onclick="RRSS.rtab('consultas')">💬 Consultas</button>
       <button class="btn ghost"   id="rp_3" onclick="RRSS.rtab('mensajes')">✉️ Mensajes</button>
+      <button class="btn ghost"   id="rp_4" onclick="RRSS.rtab('bitacora')">🩺 Actividad</button>
     </div>
     <div id="rp_cola"></div>
     <div id="rp_body"><div class="card empty">Cargando…</div></div>`;
@@ -129,7 +131,8 @@
 
   let rtipo='metricas';
   async function initReportes(){
-    for(const k of ['metricas','consultas','mensajes','cola']) if(D[k]===undefined) D[k]=await get(k);
+    for(const k of ['metricas','consultas','mensajes','cola','bitacora'])
+      if(D[k]===undefined) D[k]=await get(k);
     pintarCola();
     pintarRep();
   }
@@ -155,10 +158,11 @@
 
   function pintarRep(){
     const b=document.getElementById('rp_body'); if(!b) return;
-    ['1','2','3'].forEach((n,i)=>{
+    ['1','2','3','4'].forEach((n,i)=>{
       const el=document.getElementById('rp_'+n);
-      if(el) el.className='btn '+(['metricas','consultas','mensajes'][i]===rtipo?'primary':'ghost');
+      if(el) el.className='btn '+(['metricas','consultas','mensajes','bitacora'][i]===rtipo?'primary':'ghost');
     });
+    if(rtipo==='bitacora'){ pintarBitacora(b); return; }
     if(rtipo==='metricas'){
       const m=D.metricas;
       if(!m){ b.innerHTML='<div class="card empty">Sin reporte aún.<br><span class="muted">Se genera los lunes a las 09:00.</span></div>'; return; }
@@ -208,6 +212,54 @@
             <span class="pill ${v.sin_leer?'bad':'ok'}">${v.sin_leer||0} sin leer</span>
           </div></div>`).join('') || '<div class="card empty">Todo respondido 🎉</div>'}`;
     }
+  }
+
+  /* ---- Actividad: cómo le fue a n8n en cada corrida ---- */
+  const EST={
+    ok:          {icono:'✅', pill:'ok',   texto:'Publicado'},
+    falla:       {icono:'🚨', pill:'bad',  texto:'Falló'},
+    'sin-novedad':{icono:'😴', pill:'warn', texto:'Sin novedad'}
+  };
+
+  function pintarBitacora(b){
+    const arr=Array.isArray(D.bitacora)?D.bitacora:[];
+    if(!arr.length){
+      b.innerHTML='<div class="card empty">Sin registros todavía.<br>'+
+        '<span class="muted">Se llena sola cada vez que n8n intenta publicar.</span></div>';
+      return;
+    }
+    const fallas=arr.filter(x=>x.estado==='falla').length;
+    const ultima=arr[0];
+    const u=document.getElementById('rp_upd');
+    if(u) u.textContent='Última corrida: '+fecha(ultima.ts);
+
+    const alerta = ultima.estado==='falla'
+      ? `<div class="card" style="border-left:4px solid var(--coral)">
+           <b>🚨 La última publicación falló</b><br>
+           <span class="muted">${esc(ultima.detalle)}</span>
+           <div class="row" style="margin-top:10px">
+             <a class="btn primary sm" href="http://192.168.1.200:5678" target="_blank">Abrir n8n ↗</a>
+           </div>
+         </div>`
+      : '';
+
+    b.innerHTML=alerta+`
+      <div class="grid cards">
+        <div class="card kpi"><span>Últimas corridas</span><b>${arr.length}</b></div>
+        <div class="card kpi"><span>Con problema</span>
+          <b style="color:${fallas?'var(--coral)':'inherit'}">${fallas}</b></div>
+      </div>
+      <div class="sectiontitle">Historial</div>
+      ${arr.map(x=>{
+        const e=EST[x.estado]||{icono:'•',pill:'warn',texto:x.estado||'—'};
+        return `<div class="card"><div class="row between" style="gap:10px">
+          <span>${e.icono} <b>${esc(x.flujo||'n8n')}</b><br>
+            <span class="muted">${esc(x.detalle)}</span><br>
+            <span class="muted" style="font-size:11px">${fecha(x.ts)}${
+              x.link?` · <a href="${esc(x.link)}" target="_blank">ver post ↗</a>`:''}</span></span>
+          <span class="pill ${e.pill}">${e.texto}</span>
+        </div></div>`;
+      }).join('')}`;
   }
 
   window.RRSS={
