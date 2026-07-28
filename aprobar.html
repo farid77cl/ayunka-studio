@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ayünka · Aprobar publicaciones</title>
+<style>
+:root{--crema:#ECE6DA;--crema2:#F6F1E8;--carbon:#2F3A40;--coral:#CB5A52;--rosa:#E39B96;
+--azul:#5F7C8E;--terra:#C27A4E;--ok:#3f7d5a;--linea:#dcd3c4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--crema);color:var(--carbon);
+font-family:"Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 16px 80px}
+header{text-align:center;margin-bottom:8px}
+header h1{font-size:30px;margin:0;font-weight:700}
+header h1 span{color:var(--coral)}
+header .sub{letter-spacing:3px;text-transform:uppercase;color:var(--azul);font-size:12px}
+.tabs{display:flex;gap:10px;justify-content:center;margin:18px 0}
+.tab{border:2px solid var(--azul);background:transparent;color:var(--azul);padding:9px 22px;
+border-radius:30px;cursor:pointer;font-weight:600;font-family:inherit}
+.tab.active{background:var(--azul);color:#fff}
+.bar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.bar button{border:1px solid var(--linea);background:#fff;color:var(--carbon);padding:8px 16px;
+border-radius:20px;cursor:pointer;font-size:13px;font-family:inherit}
+.count{font-size:13px;color:#8a8073}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
+.card{background:var(--crema2);border:1px solid var(--linea);border-radius:16px;overflow:hidden;
+box-shadow:0 6px 18px rgba(47,58,64,.06);display:flex;flex-direction:column;transition:.15s}
+.card.no{opacity:.45;filter:grayscale(.6)}
+.card img{width:100%;display:block;background:#fff;cursor:zoom-in}
+.card .body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:8px}
+.tagline{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.chip{font-size:11px;padding:3px 10px;border-radius:12px;background:#e6ded0;color:#6d6456}
+.chip.d3{background:#dbe6ec;color:#3d5b6d}
+.chip.cos{background:#f6dedc;color:#8d3f39}
+.name{font-weight:600;font-size:15px}
+.cap{font-size:12px;color:#6d6456;max-height:64px;overflow:hidden;white-space:pre-wrap;line-height:1.4}
+.cap.open{max-height:none}
+.more{font-size:11px;color:var(--azul);cursor:pointer;text-decoration:underline;align-self:flex-start}
+.actions{display:flex;gap:8px;padding:10px 14px 14px}
+.actions button{flex:1;border:none;padding:9px;border-radius:10px;cursor:pointer;font-weight:600;
+font-size:13px;font-family:inherit}
+.si{background:var(--ok);color:#fff}.si.off{background:#dfe6e0;color:#7d8a82}
+.no-btn{background:var(--coral);color:#fff}.no-btn.off{background:#f0dedd;color:#a08581}
+.foot{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--linea);
+padding:12px;display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap}
+.foot button{border:none;background:var(--carbon);color:#fff;padding:11px 22px;border-radius:24px;
+cursor:pointer;font-weight:600;font-family:inherit}
+.foot button.alt{background:var(--terra)}
+.hint{font-size:12px;color:#8a8073}
+dialog{border:none;border-radius:16px;padding:0;max-width:92vw;background:transparent}
+dialog img{max-width:92vw;max-height:88vh;border-radius:16px;display:block}
+dialog::backdrop{background:rgba(47,58,64,.75)}
+.empty{text-align:center;color:#8a8073;padding:40px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Ayünka <span>·</span> Aprobar publicaciones</h1>
+    <div class="sub">Revisa antes de que n8n publique</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-t="posts">📸 Publicaciones</button>
+    <button class="tab" data-t="historias">📖 Historias</button>
+  </div>
+
+  <div class="bar">
+    <button onclick="setAll(true)">✅ Aprobar todo</button>
+    <button onclick="setAll(false)">🚫 Rechazar todo</button>
+    <button onclick="filtrar('todos')">Ver todos</button>
+    <button onclick="filtrar('si')">Solo aprobados</button>
+    <button onclick="filtrar('no')">Solo rechazados</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="foot">
+  <span class="hint">Al terminar, descarga el archivo y súbelo a GitHub para que n8n lo lea.</span>
+  <button onclick="descargar()">⬇️ Descargar lista aprobada</button>
+  <button class="alt" onclick="copiar()">📋 Copiar JSON</button>
+</div>
+
+<dialog id="lightbox" onclick="this.close()"><img id="lbimg" alt=""></dialog>
+
+<script>
+const FUENTES = {
+  posts:     'https://raw.githubusercontent.com/farid77cl/ayunka-studio/main/img/posts/posts-aprobados.json',
+  historias: 'https://raw.githubusercontent.com/farid77cl/ayunka-studio/main/img/posts/historias-aprobadas.json'
+};
+let tipo='posts', datos={posts:[],historias:[]}, filtro='todos';
+
+async function cargar(t){
+  if(datos[t].length) return render();
+  try{
+    const r = await fetch(FUENTES[t] + '?v=' + Date.now());
+    datos[t] = await r.json();
+  }catch(e){
+    document.getElementById('grid').innerHTML =
+      '<div class="empty">No se pudo cargar la lista.<br><small>Verifica que el archivo esté subido a GitHub.</small></div>';
+    return;
+  }
+  render();
+}
+
+function render(){
+  const g=document.getElementById('grid'); const arr=datos[tipo];
+  const vis = arr.filter(p => filtro==='todos' || (filtro==='si')===(p.aprobado!==false));
+  document.getElementById('count').textContent =
+    `${arr.filter(p=>p.aprobado!==false).length} aprobados de ${arr.length}`;
+  if(!vis.length){ g.innerHTML='<div class="empty">Nada que mostrar con este filtro.</div>'; return; }
+  g.innerHTML = vis.map(p=>{
+    const i = arr.indexOf(p);
+    const ap = p.aprobado!==false;
+    const linea = p.linea ? `<span class="chip ${p.linea==='3D'?'d3':'cos'}">${p.linea}</span>` : '';
+    const cap = (p.caption||'').trim();
+    return `<div class="card ${ap?'':'no'}">
+      <img src="${p.image_url}" loading="lazy" onclick="zoom('${p.image_url}')" alt="">
+      <div class="body">
+        <div class="tagline"><span class="chip">#${p.orden||i+1}</span>${linea}</div>
+        <div class="name">${(p.slug||'').replace(/-/g,' ')}</div>
+        ${cap?`<div class="cap" id="c${i}">${cap.replace(/</g,'&lt;')}</div>
+        <span class="more" onclick="document.getElementById('c${i}').classList.toggle('open')">ver más / menos</span>`:''}
+      </div>
+      <div class="actions">
+        <button class="si ${ap?'':'off'}"      onclick="marcar(${i},true)">✅ Publicar</button>
+        <button class="no-btn ${ap?'off':''}"  onclick="marcar(${i},false)">🚫 No</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function marcar(i,v){ datos[tipo][i].aprobado=v; render(); }
+function setAll(v){ datos[tipo].forEach(p=>p.aprobado=v); render(); }
+function filtrar(f){ filtro=f; render(); }
+function zoom(u){ document.getElementById('lbimg').src=u; document.getElementById('lightbox').showModal(); }
+
+function nombreArchivo(){ return tipo==='posts' ? 'posts-aprobados.json' : 'historias-aprobadas.json'; }
+function descargar(){
+  const b=new Blob([JSON.stringify(datos[tipo],null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=nombreArchivo(); a.click();
+}
+async function copiar(){
+  await navigator.clipboard.writeText(JSON.stringify(datos[tipo],null,2));
+  alert('JSON copiado ✔');
+}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active'); tipo=t.dataset.t; filtro='todos'; cargar(tipo);
+});
+cargar('posts');
+</script>
+</body>
+</html>

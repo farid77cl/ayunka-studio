@@ -1,0 +1,128 @@
+[
+  {
+    "orden": 1,
+    "slug": "esfera-sensorial",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/esfera-sensorial.jpg"
+  },
+  {
+    "orden": 2,
+    "slug": "marco-imanes",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/marco-imanes.jpg"
+  },
+  {
+    "orden": 3,
+    "slug": "alfiletero-magnetico",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/alfiletero-magnetico.jpg"
+  },
+  {
+    "orden": 4,
+    "slug": "repisa-modular",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/repisa-modular.jpg"
+  },
+  {
+    "orden": 5,
+    "slug": "colocador-cierre",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/colocador-cierre.jpg"
+  },
+  {
+    "orden": 6,
+    "slug": "atril-llavero",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/atril-llavero.jpg"
+  },
+  {
+    "orden": 7,
+    "slug": "caja-bobina",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/caja-bobina.jpg"
+  },
+  {
+    "orden": 8,
+    "slug": "marco-base",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/marco-base.jpg"
+  },
+  {
+    "orden": 9,
+    "slug": "huevo-fidget",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/huevo-fidget.jpg"
+  },
+  {
+    "orden": 10,
+    "slug": "clicker-ranita",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/clicker-ranita.jpg"
+  },
+  {
+    "orden": 11,
+    "slug": "regla-radios",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/regla-radios.jpg"
+  },
+  {
+    "orden": 12,
+    "slug": "tag-mascota",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/tag-mascota.jpg"
+  },
+  {
+    "orden": 13,
+    "slug": "neceser",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/neceser.jpg"
+  },
+  {
+    "orden": 14,
+    "slug": "banderin-nombre",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/banderin-nombre.jpg"
+  },
+  {
+    "orden": 15,
+    "slug": "estuche-sirenas",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/estuche-sirenas.jpg"
+  },
+  {
+    "orden": 16,
+    "slug": "estuche-cerezas",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/estuche-cerezas.jpg"
+  },
+  {
+    "orden": 17,
+    "slug": "neceser-orejitas-denim",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/neceser-orejitas-denim.jpg"
+  },
+  {
+    "orden": 18,
+    "slug": "letra-nombre",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/letra-nombre.jpg"
+  },
+  {
+    "orden": 19,
+    "slug": "porta-pistola",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/porta-pistola.jpg"
+  },
+  {
+    "orden": 20,
+    "slug": "estante-hello-kitty",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/estante-hello-kitty.jpg"
+  },
+  {
+    "orden": 21,
+    "slug": "repisa",
+    "aprobado": true,
+    "image_url": "https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/stories/repisa.jpg"
+  }
+]
