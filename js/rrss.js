@@ -1,22 +1,51 @@
 /* Ayünka Studio — RRSS: aprobar publicaciones y ver reportes
    Se integra como pestañas "Aprobar" y "Reportes". */
 (function(){
-  const SB='https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/';
+  /* La cola vive en Supabase: la app la guarda ahí y n8n la lee de ahí.
+     GitHub queda solo como respaldo de arranque (primera vez / si Supabase falla). */
+  const BASE='https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/';
+  const SB=BASE+'public/archivos/';
   const GH='https://raw.githubusercontent.com/farid77cl/ayunka-studio/main/img/posts/';
+  const ARCH={ posts:'posts-aprobados.json', historias:'historias-aprobadas.json' };
   const F={
-    posts:     GH+'posts-aprobados.json',
-    historias: GH+'historias-aprobadas.json',
+    posts:     SB+'cola/'+ARCH.posts,
+    historias: SB+'cola/'+ARCH.historias,
     metricas:  SB+'reportes/semanal-ultimo.json',
     consultas: SB+'reportes/alertas-comentarios.json',
     mensajes:  SB+'reportes/mensajes-pendientes.json'
   };
-  const D={}; let tipo='posts', filtro='todos';
+  const D={}; let tipo='posts', filtro='todos', sucio=false;
   const esc = s => (s||'').toString().replace(/</g,'&lt;');
   const fecha = s => s ? new Date(s).toLocaleString('es-CL',{dateStyle:'medium',timeStyle:'short'}) : '—';
 
+  function cfg(){
+    try{ const c=JSON.parse(localStorage.getItem('ayunka-supa-cfg')); if(c&&c.url&&c.key) return c; }catch(e){}
+    return (window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.supabase)||null;
+  }
+
   async function get(k){
-    try{ const r=await fetch(F[k]+'?v='+Date.now()); return r.ok ? await r.json() : null; }
-    catch(e){ return null; }
+    try{ const r=await fetch(F[k]+'?v='+Date.now()); if(r.ok) return await r.json(); }catch(e){}
+    if(ARCH[k]){ // respaldo: leer la copia de GitHub
+      try{ const r=await fetch(GH+ARCH[k]+'?v='+Date.now()); if(r.ok) return await r.json(); }catch(e){}
+    }
+    return null;
+  }
+
+  async function guardar(){
+    const c=cfg(); if(!c) throw new Error('Almacenamiento no configurado');
+    const r=await fetch(BASE+(c.bucket||'archivos')+'/cola/'+ARCH[tipo],{
+      method:'POST',
+      headers:{ apikey:c.key, Authorization:'Bearer '+c.key,
+                'Content-Type':'application/json', 'x-upsert':'true' },
+      body: JSON.stringify(D[tipo],null,2)
+    });
+    if(!r.ok) throw new Error('No se pudo guardar ('+r.status+')');
+    return true;
+  }
+
+  function estado(txt,cls){
+    const e=document.getElementById('ap_estado');
+    if(e){ e.textContent=txt; e.className='muted'+(cls?' '+cls:''); }
   }
 
   /* ============ APROBAR ============ */
@@ -41,10 +70,10 @@
     <div id="ap_grid" class="grid cards"></div>
     <div class="card" style="position:sticky;bottom:8px">
       <div class="row between" style="flex-wrap:wrap;gap:8px">
-        <span class="muted">Al terminar, descarga y sube el archivo a GitHub para que n8n lo lea.</span>
+        <span class="muted" id="ap_estado">Guarda para que n8n tome los cambios.</span>
         <div class="row" style="gap:8px">
-          <button class="btn primary" onclick="RRSS.download()">⬇️ Descargar</button>
-          <button class="btn ghost" onclick="RRSS.copy()">📋 Copiar</button>
+          <button class="btn primary" id="ap_save" onclick="RRSS.save()">💾 Guardar</button>
+          <button class="btn ghost sm" onclick="RRSS.download()">⬇️</button>
         </div>
       </div>
     </div>`;
@@ -161,10 +190,24 @@
 
   window.RRSS={
     viewAprobar, initAprobar, viewReportes, initReportes,
-    tab(t){ tipo=t; filtro='todos'; render(); },
+    tab(t){
+      if(sucio && !confirm('Tienes cambios sin guardar. ¿Cambiar igual?')) return;
+      tipo=t; filtro='todos'; sucio=false; render();
+      estado('Guarda para que n8n tome los cambios.');
+    },
     filtro(f){ filtro=f; render(); },
-    mark(i,v){ D[tipo][i].aprobado=v; render(); },
-    all(v){ (D[tipo]||[]).forEach(p=>p.aprobado=v); render(); },
+    mark(i,v){ D[tipo][i].aprobado=v; sucio=true; render(); estado('Cambios sin guardar ·'); },
+    all(v){ (D[tipo]||[]).forEach(p=>p.aprobado=v); sucio=true; render(); estado('Cambios sin guardar ·'); },
+    async save(){
+      const b=document.getElementById('ap_save');
+      if(b){ b.disabled=true; b.textContent='Guardando…'; }
+      try{
+        await guardar(); sucio=false;
+        estado('✅ Guardado — n8n ya lo ve ('+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})+')');
+      }catch(e){
+        estado('⚠️ '+e.message+' — usa ⬇️ y súbelo a GitHub');
+      }finally{ if(b){ b.disabled=false; b.textContent='💾 Guardar'; } }
+    },
     rtab(t){ rtipo=t; pintarRep(); },
     download(){
       const n = tipo==='posts' ? 'posts-aprobados.json' : 'historias-aprobadas.json';
