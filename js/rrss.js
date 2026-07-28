@@ -12,7 +12,8 @@
     historias: SB+'cola/'+ARCH.historias,
     metricas:  SB+'reportes/semanal-ultimo.json',
     consultas: SB+'reportes/alertas-comentarios.json',
-    mensajes:  SB+'reportes/mensajes-pendientes.json'
+    mensajes:  SB+'reportes/mensajes-pendientes.json',
+    cola:      SB+'reportes/cola-estado.json'
   };
   const D={}; let tipo='posts', filtro='todos', sucio=false;
   const esc = s => (s||'').toString().replace(/</g,'&lt;');
@@ -122,13 +123,34 @@
       <button class="btn ghost"   id="rp_2" onclick="RRSS.rtab('consultas')">💬 Consultas</button>
       <button class="btn ghost"   id="rp_3" onclick="RRSS.rtab('mensajes')">✉️ Mensajes</button>
     </div>
+    <div id="rp_cola"></div>
     <div id="rp_body"><div class="card empty">Cargando…</div></div>`;
   }
 
   let rtipo='metricas';
   async function initReportes(){
-    for(const k of ['metricas','consultas','mensajes']) if(D[k]===undefined) D[k]=await get(k);
+    for(const k of ['metricas','consultas','mensajes','cola']) if(D[k]===undefined) D[k]=await get(k);
+    pintarCola();
     pintarRep();
+  }
+
+  function pintarCola(){
+    const el=document.getElementById('rp_cola'); if(!el) return;
+    const c=D.cola; if(!c){ el.innerHTML=''; return; }
+    const pill = c.nivel==='critico' ? 'bad' : (c.nivel==='bajo' ? 'warn' : 'ok');
+    const icono = c.nivel==='critico' ? '🚨' : (c.nivel==='bajo' ? '⚠️' : '🌿');
+    el.innerHTML=`
+      <div class="card" style="border-left:4px solid var(--${c.nivel==='ok'?'pizarra':'coral'})">
+        <div class="row between" style="flex-wrap:wrap;gap:8px;align-items:center">
+          <span><b>${icono} ${esc(c.mensaje)}</b><br>
+            <span class="muted">Alcanza hasta el ${esc(c.alcanza_hasta)} ·
+            ${c.esperando_tu_aprobacion||0} esperando tu OK ·
+            ${c.esperando_texto_de_claude||0} esperando texto</span></span>
+          <span class="pill ${pill}">${c.dias_restantes||0} días</span>
+        </div>
+        ${c.nivel!=='ok'?`<div class="row" style="margin-top:10px">
+          <a class="btn primary sm" href="#/nuevo">➕ Subir producto nuevo</a></div>`:''}
+      </div>`;
   }
 
   function pintarRep(){
