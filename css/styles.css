@@ -110,3 +110,10 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   .fichas{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
   .ficha-foto{height:100px}
 }
+
+/* ── Enlace a la publicación de Instagram ────────────────── */
+.ig-chip{display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 9px;border-radius:9px;background:#F6F2E9;border:1px solid var(--line);text-decoration:none;color:var(--pizarra);font-size:11px;transition:border-color .15s}
+.ig-chip:hover{border-color:var(--coral);color:var(--coral)}
+.ig-chip::before{content:'';width:13px;height:13px;flex:none;border:1.6px solid currentColor;border-radius:4px;position:relative}
+.ig-chip::after{content:'';width:5px;height:5px;border:1.6px solid currentColor;border-radius:50%;margin-left:-14.5px}
+.ig-nums{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

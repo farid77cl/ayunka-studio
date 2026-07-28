@@ -62,5 +62,96 @@
     doc.text(B.name,M,812);doc.text('Bordamos. Creamos. Siempre con cariño.',W-M,812,{align:'right'});
     doc.save('Cotizacion-'+q.number+'.pdf');
   }
-  window.genQuotePDF=genQuotePDF; window.CLP=CLP;
+
+  /* ---------- Ficha de costos (Bordado / Costura) ---------- */
+  async function genCostoPDF(d){
+    const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:'pt',format:'a4'});
+    const P=(window.DB&&window.DB.params)||{}, B=P.business||{name:'Ayünka Borda Crea'};
+    const W=doc.internal.pageSize.getWidth(), M=46;
+    const CR=[236,230,218],PZ=[95,124,142],CB=[47,58,64],CO=[203,90,82];
+    const bordado = d.tipo==='bordado';
+    const hoy=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
+
+    const logo=await loadLogo();
+    doc.setFillColor(...CR); doc.rect(0,0,W,112,'F'); doc.setTextColor(...CB);
+    if(logo&&logo.data){const lw=150,lh=lw*logo.h/logo.w; doc.addImage(logo.data,'PNG',M,(112-lh)/2,lw,lh);}
+    else {doc.setFont('helvetica','bold');doc.setFontSize(22);doc.text('Ayünka',M,58);}
+    doc.setFont('helvetica','bold');doc.setFontSize(16);
+    doc.text(bordado?'COSTO DE BORDADO':'COSTO DE COSTURA',W-M,52,{align:'right'});
+    doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(...PZ);
+    doc.text(hoy,W-M,70,{align:'right'});
+    doc.text('Uso interno · no es cotización',W-M,84,{align:'right'});
+
+    let y=146; doc.setTextColor(...CB);
+    const fila=(et,vl,neg)=>{
+      if(y>760){doc.addPage();y=60;}
+      doc.setFont('helvetica',neg?'bold':'normal'); doc.setFontSize(neg?10.5:10);
+      doc.text(String(et),M,y); doc.text(String(vl),W-M,y,{align:'right'}); y+=17;
+    };
+    const titulo=t=>{
+      if(y>740){doc.addPage();y=60;}
+      y+=8; doc.setFillColor(...PZ); doc.rect(M-6,y-13,W-2*M+12,21,'F');
+      doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+      doc.text(t,M,y); doc.setTextColor(...CB); y+=25;
+    };
+    const linea=()=>{ doc.setDrawColor(220,212,196); doc.line(M,y-10,W-M,y-10); };
+
+    if(bordado){
+      titulo('PARÁMETROS');
+      fila('Puntadas del diseño', Math.round(d.punt).toLocaleString('es-CL'));
+      fila('Unidades a producir', d.uni);
+      fila('Costo de la tela por cm²', CLP4v(d.telaCm2));
+      fila('Costo de la entretela por cm²', CLP4v(d.entreCm2));
+      fila('Hilo de bobina por metro', CLP(d.hiloAb));
+      fila('Hilo de aguja por metro', CLP(d.hiloAr));
+
+      titulo('MATERIALES POR PIEZA');
+      fila('Tela', CLP(d.cTela));
+      fila('Entretela', CLP(d.cEntre));
+      if(d.cHidro>0) fila('Hidrosoluble', CLP(d.cHidro));
+      fila('Hilo de aguja', CLP(d.cHar));
+      fila('Hilo de bobina', CLP(d.cHab));
+      linea();
+      fila('Subtotal de materiales', CLP(d.sub), true);
+      fila('Con margen ×'+d.mult.toFixed(2), CLP(d.subG), true);
+
+      titulo('MANO DE OBRA');
+      fila('Bordado ('+Math.round(d.punt).toLocaleString('es-CL')+' puntadas)', CLP(d.bord));
+    } else {
+      titulo('MATERIALES');
+      (d.mats||[]).forEach(m=>{
+        if(!m.d && !m.sub) return;
+        fila((m.d||'Insumo')+'  ·  '+m.c+' × '+CLP(m.p), CLP(m.sub));
+      });
+      linea();
+      fila('Subtotal de materiales', CLP(d.mat), true);
+      fila('Con margen ×'+d.mult.toFixed(2), CLP(d.matG), true);
+
+      titulo('MANO DE OBRA');
+      fila('Tiempo de confección', Math.round(d.min)+' min');
+      fila('Valor de la hora', CLP(d.hora));
+      fila('Costo de mano de obra', CLP(d.mo), true);
+      if(d.extra>0){ titulo('OTROS'); fila('Costos adicionales', CLP(d.extra)); }
+      fila('Unidades a producir', d.uni);
+    }
+
+    y+=14; if(y>700){doc.addPage();y=90;}
+    doc.setFillColor(...CR); doc.roundedRect(M,y-4,W-2*M,74,7,7,'F');
+    doc.setTextColor(...CB); doc.setFont('helvetica','normal'); doc.setFontSize(11);
+    doc.text('Precio por unidad',M+16,y+22);
+    doc.setFont('helvetica','bold'); doc.setFontSize(15);
+    doc.text(CLP(d.unidad),W-M-16,y+22,{align:'right'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(11);
+    doc.text('Total por '+d.uni+' unidad(es)',M+16,y+52);
+    doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(...CO);
+    doc.text(CLP(d.total),W-M-16,y+52,{align:'right'});
+
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...PZ);
+    doc.text(B.name||'Ayünka Borda Crea',M,812);
+    doc.text('Bordamos. Creamos. Siempre con cariño.',W-M,812,{align:'right'});
+    doc.save((bordado?'Costo-bordado-':'Costo-costura-')+new Date().toISOString().slice(0,10)+'.pdf');
+  }
+  const CLP4v = n => isFinite(n) ? '$ '+(Math.round(n*10000)/10000).toLocaleString('es-CL',{maximumFractionDigits:4}) : '–';
+
+  window.genQuotePDF=genQuotePDF; window.genCostoPDF=genCostoPDF; window.CLP=CLP;
 })();

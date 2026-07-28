@@ -87,6 +87,7 @@
           <b>${fmt(price)}</b>
           <span class="pill ${salud}" title="Margen">${pct(m)}</span>
         </div>
+        ${window.IG?IG.chip(p):''}
       </div>
     </article>`;
   }
@@ -114,7 +115,7 @@
       ${cuerpo}`;
   }
   function editProduct(id){
-    A._prod=id?JSON.parse(JSON.stringify(DB.products.find(x=>x.id===id))):{name:'',linea:'3D',material:'PLA',grams:'',timeH:'',colors:1,postMin:0,packOverride:null,price:null,filamentId:null,imageId:null,files:[]};
+    A._prod=id?JSON.parse(JSON.stringify(DB.products.find(x=>x.id===id))):{name:'',linea:'3D',igId:null,material:'PLA',grams:'',timeH:'',colors:1,postMin:0,packOverride:null,price:null,filamentId:null,imageId:null,files:[]};
     renderProductModal();
   }
   function renderProductModal(){
@@ -129,6 +130,7 @@
         <div style="flex:1"><label class="field">Nombre<input id="f-name" value="${esc(p.name)}" oninput="A._prod.name=this.value"></label>
         <label class="field" style="margin-top:8px">Foto del producto<input type="file" accept="image/*" onchange="A.prodImg(this)"></label>${(p.imageUrl||p.imageId)?`<button class="linkish" style="margin-top:6px" onclick="A.prodDelImg()">🗑️ Quitar foto</button>`:''}</div></div>
       <div class="formgrid" style="margin-top:10px">
+        ${window.IG?IG.selector(p):''}
         <label class="field">Línea<select id="f-linea" onchange="A._prod.linea=this.value;A.prodRefresh()">
           <option value="3D" ${(p.linea||'3D')==='3D'?'selected':''}>Impresión 3D · Ayünka Crea</option>
           <option value="textil" ${p.linea==='textil'?'selected':''}>Costura y bordado · Borda Crea</option></select></label>
@@ -692,7 +694,7 @@
 
   /* ---------- ROUTER ---------- */
   const VIEWS={inicio:vInicio,productos:vProductos,placas:vPlacas,filamentos:vFilamentos,clientes:vClientes,cotizaciones:vCotiz,costos:()=>(window.CalcCostos?CalcCostos.view():'<div class="card">Cargando…</div>'),nuevo:()=>(window.NUEVO?NUEVO.view():'<div class="card">Cargando…</div>'),aprobar:()=>(window.RRSS?RRSS.viewAprobar():'<div class="card">Cargando…</div>'),reportes:()=>(window.RRSS?RRSS.viewReportes():'<div class="card">Cargando…</div>'),pedidos:vPedidos,finanzas:vFinanzas,plan:vPlan,ajustes:vAjustes};
-  function render(){let id=(location.hash.replace('#/','')||'inicio');if(!VIEWS[id])id='inicio';renderTabs(id);$('#view').innerHTML=VIEWS[id]();hydrate();if(id==='costos'&&window.CalcCostos){try{CalcCostos.init();}catch(e){}}if(id==='nuevo'&&window.NUEVO){try{NUEVO.init();}catch(e){}}if(id==='aprobar'&&window.RRSS){try{RRSS.initAprobar();}catch(e){}}if(id==='reportes'&&window.RRSS){try{RRSS.initReportes();}catch(e){}}window.scrollTo(0,0);}
+  function render(){let id=(location.hash.replace('#/','')||'inicio');if(!VIEWS[id])id='inicio';renderTabs(id);$('#view').innerHTML=VIEWS[id]();hydrate();if(id==='costos'&&window.CalcCostos){try{CalcCostos.init();}catch(e){}}if(id==='productos'&&window.IG&&!A._igListo){A._igListo=true;IG.cargar().then(()=>{if((location.hash.replace('#/','')||'inicio')==='productos')render();});}if(id==='nuevo'&&window.NUEVO){try{NUEVO.init();}catch(e){}}if(id==='aprobar'&&window.RRSS){try{RRSS.initAprobar();}catch(e){}}if(id==='reportes'&&window.RRSS){try{RRSS.initReportes();}catch(e){}}window.scrollTo(0,0);}
   window.addEventListener('hashchange',render);
   $('#menuBtn').addEventListener('click',()=>$('#tabs').classList.toggle('open'));
 

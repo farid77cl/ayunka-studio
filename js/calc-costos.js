@@ -32,6 +32,7 @@
     <div class="row" style="gap:8px;margin:10px 0 4px">
       <button class="btn primary" id="cc_tabB" onclick="CalcCostos.tab('B')">🧵 Bordado</button>
       <button class="btn ghost" id="cc_tabC" onclick="CalcCostos.tab('C')">✂️ Costura</button>
+      <button class="btn ghost sm" style="margin-left:auto" id="cc_pdf" onclick="CalcCostos.pdf(document.getElementById('cc_costura').style.display==='none'?'B':'C')">📄 Exportar PDF</button>
     </div>
 
     <!-- BORDADO -->
@@ -197,6 +198,8 @@
     set('d_hab',CLP(cHab)); set('d_har',CLP(cHar)); set('d_sub',CLP(sub)); set('d_subg',CLP(subG));
     set('d_bord',CLP(bord)); set('d_uni',CLP(unidad)); set('d_total',CLP(total));
     const mv=document.getElementById('b_mult_v'); if(mv)mv.textContent='×'+mult.toFixed(2);
+    return {tipo:'bordado',punt,uni,telaCm2,entreCm2,hiloAb,hiloAr,
+            cTela,cEntre,cHidro,cHar,cHab,sub,mult,subG,bord,unidad,total};
   }
   function calcC(){
     let mat=0; matRows().forEach(r=>mat+=r.c*r.p);
@@ -206,6 +209,9 @@
     set('cr_mat',CLP(mat)); set('cr_mo',CLP(mo)); set('cr_gan',CLP(matG-mat));
     set('cd_extra',CLP(extra)); set('cd_uni',CLP(unidad)); set('cd_total',CLP(total));
     const mv=document.getElementById('c_mult_v'); if(mv)mv.textContent='×'+mult.toFixed(2);
+    return {tipo:'costura',uni,mats:matRows().map(r=>({d:r.d,c:r.c,p:r.p,sub:r.c*r.p})),
+            mat,mo,mult,matG,extra,unidad,total,
+            min:val('c_min'),hora:val('c_hora')};
   }
 
   function tab(which){
@@ -233,5 +239,11 @@
     tab('B'); calcB(); calcC();
   }
 
-  window.CalcCostos={view,init,tab,addRow};
+  function pdf(which){
+    try{
+      const d = which==='C' ? calcC() : calcB();
+      window.genCostoPDF(d);
+    }catch(e){ alert('No se pudo generar el PDF: '+e.message); }
+  }
+  window.CalcCostos={view,init,tab,addRow,pdf};
 })();
