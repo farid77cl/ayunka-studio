@@ -14,7 +14,7 @@
   function fileToBlobStore(file,kind){return IDB.putFile(file,{name:file.name,type:file.type,kind});}
 
   const TABS=[{id:'inicio',label:'Inicio'},{id:'productos',label:'Productos'},{id:'placas',label:'Placas'},
-    {id:'filamentos',label:'Filamentos'},{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},{id:'costos',label:'Costos B/C'},{id:'pedidos',label:'Producción'},{id:'finanzas',label:'Finanzas'},
+    {id:'filamentos',label:'Filamentos'},{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},{id:'costos',label:'Costos B/C'},{id:'aprobar',label:'Aprobar'},{id:'reportes',label:'Reportes'},{id:'pedidos',label:'Producción'},{id:'finanzas',label:'Finanzas'},
     {id:'plan',label:'Planificación'},{id:'ajustes',label:'Ajustes'}];
   function renderTabs(a){$('#tabs').innerHTML=TABS.map(t=>`<button class="tab ${t.id===a?'active':''}" onclick="A.go('${t.id}')">${t.label}</button>`).join('');}
   function go(id){location.hash='#/'+id;$('#tabs').classList.remove('open');}
@@ -642,8 +642,8 @@
   }
 
   /* ---------- ROUTER ---------- */
-  const VIEWS={inicio:vInicio,productos:vProductos,placas:vPlacas,filamentos:vFilamentos,clientes:vClientes,cotizaciones:vCotiz,costos:()=>(window.CalcCostos?CalcCostos.view():'<div class="card">Cargando…</div>'),pedidos:vPedidos,finanzas:vFinanzas,plan:vPlan,ajustes:vAjustes};
-  function render(){let id=(location.hash.replace('#/','')||'inicio');if(!VIEWS[id])id='inicio';renderTabs(id);$('#view').innerHTML=VIEWS[id]();hydrate();if(id==='costos'&&window.CalcCostos){try{CalcCostos.init();}catch(e){}}window.scrollTo(0,0);}
+  const VIEWS={inicio:vInicio,productos:vProductos,placas:vPlacas,filamentos:vFilamentos,clientes:vClientes,cotizaciones:vCotiz,costos:()=>(window.CalcCostos?CalcCostos.view():'<div class="card">Cargando…</div>'),aprobar:()=>(window.RRSS?RRSS.viewAprobar():'<div class="card">Cargando…</div>'),reportes:()=>(window.RRSS?RRSS.viewReportes():'<div class="card">Cargando…</div>'),pedidos:vPedidos,finanzas:vFinanzas,plan:vPlan,ajustes:vAjustes};
+  function render(){let id=(location.hash.replace('#/','')||'inicio');if(!VIEWS[id])id='inicio';renderTabs(id);$('#view').innerHTML=VIEWS[id]();hydrate();if(id==='costos'&&window.CalcCostos){try{CalcCostos.init();}catch(e){}}if(id==='aprobar'&&window.RRSS){try{RRSS.initAprobar();}catch(e){}}if(id==='reportes'&&window.RRSS){try{RRSS.initReportes();}catch(e){}}window.scrollTo(0,0);}
   window.addEventListener('hashchange',render);
   $('#menuBtn').addEventListener('click',()=>$('#tabs').classList.toggle('open'));
 
