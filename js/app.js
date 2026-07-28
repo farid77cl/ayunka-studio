@@ -13,10 +13,25 @@
   function closeModal(){$('#modal-root').innerHTML='';}
   function fileToBlobStore(file,kind){return IDB.putFile(file,{name:file.name,type:file.type,kind});}
 
-  const TABS=[{id:'inicio',label:'Inicio'},{id:'productos',label:'Productos'},{id:'placas',label:'Placas'},
-    {id:'filamentos',label:'Filamentos'},{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},{id:'costos',label:'Costos B/C'},{id:'nuevo',label:'Nuevo post'},{id:'aprobar',label:'Aprobar'},{id:'reportes',label:'Reportes'},{id:'pedidos',label:'Producción'},{id:'finanzas',label:'Finanzas'},
-    {id:'plan',label:'Planificación'},{id:'ajustes',label:'Ajustes'}];
-  function renderTabs(a){$('#tabs').innerHTML=TABS.map(t=>`<button class="tab ${t.id===a?'active':''}" onclick="A.go('${t.id}')">${t.label}</button>`).join('');}
+  const AREAS=[
+    {id:'inicio', label:'Inicio', tabs:[{id:'inicio',label:'Inicio'}]},
+    {id:'taller', label:'Taller', tabs:[{id:'productos',label:'Productos'},{id:'placas',label:'Placas'},{id:'filamentos',label:'Filamentos'},{id:'pedidos',label:'Producción'}]},
+    {id:'ventas', label:'Ventas', tabs:[{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},{id:'costos',label:'Costos B/C'},{id:'finanzas',label:'Finanzas'}]},
+    {id:'redes',  label:'Redes',  tabs:[{id:'nuevo',label:'Nuevo post'},{id:'aprobar',label:'Aprobar'},{id:'reportes',label:'Reportes'}]},
+    {id:'config', label:'Ajustes',tabs:[{id:'plan',label:'Planificación'},{id:'ajustes',label:'Ajustes'}]}
+  ];
+  const TABS=AREAS.reduce((a,x)=>a.concat(x.tabs),[]);
+  function areaDe(id){ return AREAS.find(a=>a.tabs.some(t=>t.id===id))||AREAS[0]; }
+  function renderTabs(act){
+    const ar=areaDe(act);
+    $('#tabs').innerHTML=AREAS.map(a=>
+      `<button class="tab ${a.id===ar.id?'active':''}" onclick="A.go('${a.tabs[0].id}')">${a.label}</button>`).join('');
+    const sb=$('#subtabs'); if(!sb) return;
+    if(ar.tabs.length<2){ sb.innerHTML=''; sb.hidden=true; return; }
+    sb.hidden=false;
+    sb.innerHTML=ar.tabs.map(t=>
+      `<button class="subtab ${t.id===act?'active':''}" onclick="A.go('${t.id}')">${t.label}</button>`).join('');
+  }
   function go(id){location.hash='#/'+id;$('#tabs').classList.remove('open');}
 
   /* ---------- INICIO ---------- */
@@ -53,22 +68,53 @@
   }
 
   /* ---------- PRODUCTOS ---------- */
+  function fichaProd(p){
+    const c=calc.costPiece(p), price=calc.priceOf(p), m=calc.marginPct(price,c.total);
+    const salud = m>=0.6?'ok':m>=0.4?'warn':'bad';
+    const foto = p.imageUrl
+      ? `<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`
+      : (p.imageId ? `<img data-img-id="${p.imageId}" alt="" loading="lazy">`
+                   : `<div class="sinfoto">Sin foto</div>`);
+    const det = (p.linea==='textil')
+      ? esc(p.material||'')
+      : `${esc(p.material)} · ${p.grams}g · ${calc.hm(p.timeH)}`;
+    return `<article class="ficha ${p.linea==='textil'?'textil':''}" onclick="A.editProduct('${p.id}')">
+      <div class="ficha-foto">${foto}</div>
+      <div class="ficha-cuerpo">
+        <h3>${esc(p.name)}</h3>
+        <p class="muted">${det}</p>
+        <div class="row between" style="margin-top:8px">
+          <b>${fmt(price)}</b>
+          <span class="pill ${salud}" title="Margen">${pct(m)}</span>
+        </div>
+      </div>
+    </article>`;
+  }
+
   function vProductos(){
-    const rows=DB.products.map(p=>{
-      const c=calc.costPiece(p),price=calc.priceOf(p),m=calc.marginPct(price,c.total);
-      const fil=p.filamentId?DB.filaments.find(f=>f.id===p.filamentId):null;
-      const thumb=p.imageUrl?`<img class="thumb" src="${esc(p.imageUrl)}" alt="">`:(p.imageId?`<img class="thumb" data-img-id="${p.imageId}" alt="">`:`<div class="thumb ph"><i>🧵</i></div>`);
-      return `<tr>
-        <td><div class="row" style="gap:10px;flex-wrap:nowrap">${thumb}<div><b>${esc(p.name)}</b><div class="muted">${esc(p.material)} · ${p.grams}g · ${calc.hm(p.timeH)} · ${p.colors}c${fil?` · ${esc(fil.color)}/${esc(fil.marca)}`:''}</div><div class="row" style="gap:6px;margin-top:4px"><span class="pill ${(p.imageId||p.imageUrl)?'ok':'bad'}">${(p.imageId||p.imageUrl)?'📷 foto':'sin foto'}</span><span class="pill ${(p.files&&p.files.length)?'ok':'bad'}">${(p.files&&p.files.length)?'📄 STL':'sin STL'}</span><span class="tag">stock: ${p.stock||0}</span></div></div></div></td>
-        <td class="num">${fmt(c.total)}</td><td class="num">${fmt(price)}</td>
-        <td class="num"><span class="pill ${m>=0.6?'ok':m>=0.4?'warn':'bad'}">${pct(m)}</span></td>
-        <td class="num"><button class="btn ghost sm" onclick="A.editProduct('${p.id}')">Editar</button></td></tr>`;}).join('');
-    return `<div class="row between"><h1 class="page">Productos</h1><div class="row">${window.AYUNKA_DESIGNS?`<button class="btn ghost" onclick="A.addDesigns()">+ Diseños Ayünka</button>`:''}<button class="btn ghost" onclick="A.delProductsNoFile()">Limpiar sin archivo</button><button class="btn primary" onclick="A.editProduct()">+ Nuevo</button></div></div>
+    const ps=DB.products||[];
+    const grupos=[
+      {id:'3D',     titulo:'Línea 3D · Ayünka Crea',        items:ps.filter(p=>(p.linea||'3D')==='3D')},
+      {id:'textil', titulo:'Línea textil · Borda Crea',     items:ps.filter(p=>p.linea==='textil')}
+    ].filter(g=>g.items.length);
+
+    const cuerpo = grupos.length
+      ? grupos.map(g=>`<div class="sectiontitle">${g.titulo} · ${g.items.length}</div>
+          <div class="grid fichas">${g.items.map(fichaProd).join('')}
+            <button class="ficha nueva" onclick="A.editProduct()">+ Agregar</button></div>`).join('')
+      : `<div class="card empty">Todavía no hay productos.<br>
+           <span class="muted">Agrega el primero para ver su costo y margen.</span>
+           <div class="row" style="margin-top:12px"><button class="btn primary" onclick="A.editProduct()">+ Nuevo producto</button></div></div>`;
+
+    return `<div class="row between"><h1 class="page">Productos</h1>
+      <div class="row">${window.AYUNKA_DESIGNS?`<button class="btn ghost sm" onclick="A.addDesigns()">+ Diseños Ayünka</button>`:''}
+        <button class="btn ghost sm" onclick="A.delProductsNoFile()">Limpiar sin archivo</button>
+        <button class="btn primary" onclick="A.editProduct()">+ Nuevo</button></div></div>
       <p class="sub">Costo de producción y precio sugerido por pieza</p>
-      <div class="tablewrap"><table><thead><tr><th>Pieza</th><th class="num">Costo</th><th class="num">Precio</th><th class="num">Margen</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="empty">Sin productos</td></tr>'}</tbody></table></div>`;
+      ${cuerpo}`;
   }
   function editProduct(id){
-    A._prod=id?JSON.parse(JSON.stringify(DB.products.find(x=>x.id===id))):{name:'',material:'PLA',grams:'',timeH:'',colors:1,postMin:0,packOverride:null,price:null,filamentId:null,imageId:null,files:[]};
+    A._prod=id?JSON.parse(JSON.stringify(DB.products.find(x=>x.id===id))):{name:'',linea:'3D',material:'PLA',grams:'',timeH:'',colors:1,postMin:0,packOverride:null,price:null,filamentId:null,imageId:null,files:[]};
     renderProductModal();
   }
   function renderProductModal(){
@@ -83,6 +129,9 @@
         <div style="flex:1"><label class="field">Nombre<input id="f-name" value="${esc(p.name)}" oninput="A._prod.name=this.value"></label>
         <label class="field" style="margin-top:8px">Foto del producto<input type="file" accept="image/*" onchange="A.prodImg(this)"></label>${(p.imageUrl||p.imageId)?`<button class="linkish" style="margin-top:6px" onclick="A.prodDelImg()">🗑️ Quitar foto</button>`:''}</div></div>
       <div class="formgrid" style="margin-top:10px">
+        <label class="field">Línea<select id="f-linea" onchange="A._prod.linea=this.value;A.prodRefresh()">
+          <option value="3D" ${(p.linea||'3D')==='3D'?'selected':''}>Impresión 3D · Ayünka Crea</option>
+          <option value="textil" ${p.linea==='textil'?'selected':''}>Costura y bordado · Borda Crea</option></select></label>
         <label class="field">Material<select id="f-mat" onchange="A._prod.material=this.value;A.prodRefresh()">${matOptions(p.material)}</select></label>
         ${(+p.colors>=2)?'':`<label class="field">Filamento (marca/precio)<select id="f-fil" onchange="A._prod.filamentId=this.value||null;A.prodRefresh()">${filOpts}</select></label>`}
         <label class="field">Peso (g)${(+p.colors>=2)?' <span class=\'muted\'>(suma de colores)</span>':''}<input id="f-grams" type="number" ${(+p.colors>=2)?'readonly':''} value="${p.grams}" oninput="A._prod.grams=this.value;A.prodRefresh()"></label>
