@@ -131,28 +131,56 @@
 
   let rtipo='metricas';
   async function initReportes(){
-    for(const k of ['metricas','consultas','mensajes','cola','bitacora'])
+    for(const k of ['metricas','consultas','mensajes','bitacora','posts'])
       if(D[k]===undefined) D[k]=await get(k);
     pintarCola();
     pintarRep();
   }
 
+  /* El estado de la cola se calcula aquí y ahora, con la cola y la bitácora.
+     Antes se leía de reportes/cola-estado.json, que solo se reescribe los lunes:
+     mostraba números viejos toda la semana. */
   function pintarCola(){
     const el=document.getElementById('rp_cola'); if(!el) return;
-    const c=D.cola; if(!c){ el.innerHTML=''; return; }
-    const pill = c.nivel==='critico' ? 'bad' : (c.nivel==='bajo' ? 'warn' : 'ok');
-    const icono = c.nivel==='critico' ? '🚨' : (c.nivel==='bajo' ? '⚠️' : '🌿');
+    const cola=Array.isArray(D.posts)?D.posts:null;
+    if(!cola){ el.innerHTML=''; return; }
+
+    const bit=Array.isArray(D.bitacora)?D.bitacora:[];
+    const yaSalio=new Set(bit.filter(x=>x&&x.estado==='ok'&&x.slug).map(x=>x.slug));
+
+    const conTexto = p => p && String(p.caption||'').trim();
+    const listos   = cola.filter(p=>p.aprobado===true && conTexto(p) && !yaSalio.has(p.slug));
+    const porOK    = cola.filter(p=>p.aprobado!==true && conTexto(p)).length;
+    const sinTexto = cola.filter(p=>!conTexto(p)).length;
+    const dias     = listos.length;
+
+    const hasta=new Date(Date.now()+dias*86400000).toLocaleDateString('es-CL',{day:'2-digit',month:'long'});
+    const nivel = dias===0 ? 'critico' : (dias<=5 ? 'bajo' : 'ok');
+    const pill  = nivel==='critico' ? 'bad' : (nivel==='bajo' ? 'warn' : 'ok');
+    const icono = nivel==='critico' ? '🚨' : (nivel==='bajo' ? '⚠️' : '🌿');
+    const msg = dias===0 ? 'La cuenta se queda sin publicar'
+              : dias<=5  ? `Quedan ${dias} día(s) de contenido`
+                         : `Todo bien: hay contenido para ${dias} día(s)`;
+
+    const detalle=[`alcanza hasta el ${hasta}`];
+    if(porOK)    detalle.push(`${porOK} esperando tu OK`);
+    if(sinTexto) detalle.push(`${sinTexto} esperando texto`);
+
+    const sig = listos.slice().sort((a,b)=>(a.orden||0)-(b.orden||0))[0];
+
     el.innerHTML=`
-      <div class="card" style="border-left:4px solid var(--${c.nivel==='ok'?'pizarra':'coral'})">
+      <div class="card" style="border-left:4px solid var(--${nivel==='ok'?'pizarra':'coral'})">
         <div class="row between" style="flex-wrap:wrap;gap:8px;align-items:center">
-          <span><b>${icono} ${esc(c.mensaje)}</b><br>
-            <span class="muted">Alcanza hasta el ${esc(c.alcanza_hasta)} ·
-            ${c.esperando_tu_aprobacion||0} esperando tu OK ·
-            ${c.esperando_texto_de_claude||0} esperando texto</span></span>
-          <span class="pill ${pill}">${c.dias_restantes||0} días</span>
+          <span><b>${icono} ${msg}</b><br>
+            <span class="muted">${detalle.join(' · ')}</span>
+            ${sig?`<br><span class="muted">Esta noche a las 20:00 sale <b>${esc((sig.slug||'').replace(/-/g,' '))}</b></span>`:''}
+          </span>
+          <span class="pill ${pill}">${dias} días</span>
         </div>
-        ${c.nivel!=='ok'?`<div class="row" style="margin-top:10px">
-          <a class="btn primary sm" href="#/nuevo">➕ Subir producto nuevo</a></div>`:''}
+        ${(nivel!=='ok'||porOK)?`<div class="row" style="margin-top:10px;gap:8px">
+          ${porOK?`<a class="btn primary sm" href="#/aprobar">✅ Revisar los ${porOK} pendientes</a>`:''}
+          ${nivel!=='ok'?`<a class="btn ghost sm" href="#/nuevo">➕ Subir producto nuevo</a>`:''}
+        </div>`:''}
       </div>`;
   }
 
@@ -215,11 +243,26 @@
   }
 
   /* ---- Actividad: cómo le fue a n8n en cada corrida ---- */
-  const EST={
-    ok:          {icono:'✅', pill:'ok',   texto:'Publicado'},
-    falla:       {icono:'🚨', pill:'bad',  texto:'Falló'},
-    'sin-novedad':{icono:'😴', pill:'warn', texto:'Sin novedad'}
-  };
+  /* El sello depende de qué hizo el flujo, no solo de si terminó bien.
+     Antes todo lo que salía "ok" decía "Publicado", incluso las alertas de comentarios. */
+  function sello(x){
+    if(x.estado==='falla')        return {icono:'🚨', pill:'bad',  texto:'Falló'};
+    if(x.estado==='sin-novedad')  return {icono:'😴', pill:'warn', texto:'Sin novedad'};
+    const f=(x.flujo||'').toLowerCase();
+    if(x.link || f.startsWith('instagram')) return {icono:'📷', pill:'ok', texto:'Publicado'};
+    if(f.startsWith('historia'))            return {icono:'📖', pill:'ok', texto:'Historia'};
+    if(f.includes('alerta') || f.includes('consulta'))
+                                            return {icono:'💬', pill:'warn', texto:'Hay consultas'};
+    if(f.includes('mensaje'))               return {icono:'✉️', pill:'ok', texto:'Inbox revisado'};
+    if(f.includes('reporte') || f.includes('métricas') || f.includes('metricas'))
+                                            return {icono:'📊', pill:'ok', texto:'Reporte listo'};
+    if(f.includes('respaldo'))              return {icono:'💾', pill:'ok', texto:'Respaldo'};
+    if(f.includes('caption'))               return {icono:'✍️', pill:'ok', texto:'Texto escrito'};
+    if(f.includes('cola'))                  return {icono:'📦', pill:'ok', texto:'Cola revisada'};
+    if(f.includes('enlaces'))               return {icono:'🔗', pill:'ok', texto:'Datos al día'};
+    if(f.includes('resumen'))               return {icono:'📨', pill:'ok', texto:'Resumen enviado'};
+    return {icono:'✅', pill:'ok', texto:'Listo'};
+  }
 
   function pintarBitacora(b){
     const arr=Array.isArray(D.bitacora)?D.bitacora:[];
@@ -251,7 +294,7 @@
       </div>
       <div class="sectiontitle">Historial</div>
       ${arr.map(x=>{
-        const e=EST[x.estado]||{icono:'•',pill:'warn',texto:x.estado||'—'};
+        const e=sello(x);
         return `<div class="card"><div class="row between" style="gap:10px">
           <span>${e.icono} <b>${esc(x.flujo||'n8n')}</b><br>
             <span class="muted">${esc(x.detalle)}</span><br>
