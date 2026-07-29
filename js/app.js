@@ -16,7 +16,7 @@
   const AREAS=[
     {id:'inicio', label:'Inicio', tabs:[{id:'inicio',label:'Inicio'}]},
     {id:'taller', label:'Taller', tabs:[{id:'productos',label:'Productos'},{id:'placas',label:'Placas'},{id:'filamentos',label:'Filamentos'},{id:'pedidos',label:'Producción'}]},
-    {id:'ventas', label:'Ventas', tabs:[{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},{id:'costos',label:'Costos B/C'},{id:'finanzas',label:'Finanzas'}]},
+    {id:'ventas', label:'Ventas', tabs:[{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},{id:'costos',label:'Costos B/C'},{id:'whatsapp',label:'WhatsApp'},{id:'finanzas',label:'Finanzas'}]},
     {id:'redes',  label:'Redes',  tabs:[{id:'nuevo',label:'Nuevo post'},{id:'aprobar',label:'Aprobar'},{id:'reportes',label:'Reportes'}]},
     {id:'config', label:'Ajustes',tabs:[{id:'plan',label:'Planificación'},{id:'ajustes',label:'Ajustes'}]}
   ];
@@ -693,7 +693,7 @@
   }
 
   /* ---------- ROUTER ---------- */
-  const VIEWS={inicio:vInicio,productos:vProductos,placas:vPlacas,filamentos:vFilamentos,clientes:vClientes,cotizaciones:vCotiz,costos:()=>(window.CalcCostos?CalcCostos.view():'<div class="card">Cargando…</div>'),nuevo:()=>(window.NUEVO?NUEVO.view():'<div class="card">Cargando…</div>'),aprobar:()=>(window.RRSS?RRSS.viewAprobar():'<div class="card">Cargando…</div>'),reportes:()=>(window.RRSS?RRSS.viewReportes():'<div class="card">Cargando…</div>'),pedidos:vPedidos,finanzas:vFinanzas,plan:vPlan,ajustes:vAjustes};
+  const VIEWS={inicio:vInicio,productos:vProductos,placas:vPlacas,filamentos:vFilamentos,clientes:vClientes,cotizaciones:vCotiz,costos:()=>(window.CalcCostos?CalcCostos.view():'<div class="card">Cargando…</div>'),nuevo:()=>(window.NUEVO?NUEVO.view():'<div class="card">Cargando…</div>'),aprobar:()=>(window.RRSS?RRSS.viewAprobar():'<div class="card">Cargando…</div>'),reportes:()=>(window.RRSS?RRSS.viewReportes():'<div class="card">Cargando…</div>'),whatsapp:()=>(window.WSP?WSP.view():'<div class="card">Cargando…</div>'),pedidos:vPedidos,finanzas:vFinanzas,plan:vPlan,ajustes:vAjustes};
   function render(){let id=(location.hash.replace('#/','')||'inicio');if(!VIEWS[id])id='inicio';renderTabs(id);$('#view').innerHTML=VIEWS[id]();hydrate();if(id==='costos'&&window.CalcCostos){try{CalcCostos.init();}catch(e){}}if(id==='productos'&&window.IG&&!A._igListo){A._igListo=true;IG.cargar().then(()=>{if((location.hash.replace('#/','')||'inicio')==='productos')render();});}if(id==='nuevo'&&window.NUEVO){try{NUEVO.init();}catch(e){}}if(id==='aprobar'&&window.RRSS){try{RRSS.initAprobar();}catch(e){}}if(id==='reportes'&&window.RRSS){try{RRSS.initReportes();}catch(e){}}window.scrollTo(0,0);}
   window.addEventListener('hashchange',render);
   $('#menuBtn').addEventListener('click',()=>$('#tabs').classList.toggle('open'));

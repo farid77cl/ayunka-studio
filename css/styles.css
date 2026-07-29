@@ -117,3 +117,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .ig-chip::before{content:'';width:13px;height:13px;flex:none;border:1.6px solid currentColor;border-radius:4px;position:relative}
 .ig-chip::after{content:'';width:5px;height:5px;border:1.6px solid currentColor;border-radius:50%;margin-left:-14.5px}
 .ig-nums{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Textos de WhatsApp: se muestran tal cual se van a pegar, con los saltos de línea
+   respetados y seleccionables de un toque largo si falla el portapapeles. */
+.wsp-txt{white-space:pre-wrap;word-break:break-word;font:inherit;background:var(--crema);
+  border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin:10px 0 6px;
+  user-select:text;-webkit-user-select:text}
