@@ -70,6 +70,7 @@
     const W=doc.internal.pageSize.getWidth(), M=46;
     const CR=[236,230,218],PZ=[95,124,142],CB=[47,58,64],CO=[203,90,82];
     const bordado = d.tipo==='bordado';
+    const tresD   = d.tipo==='3d';
     const hoy=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
 
     const logo=await loadLogo();
@@ -77,7 +78,7 @@
     if(logo&&logo.data){const lw=150,lh=lw*logo.h/logo.w; doc.addImage(logo.data,'PNG',M,(112-lh)/2,lw,lh);}
     else {doc.setFont('helvetica','bold');doc.setFontSize(22);doc.text('Ayünka',M,58);}
     doc.setFont('helvetica','bold');doc.setFontSize(16);
-    doc.text(bordado?'COSTO DE BORDADO':'COSTO DE COSTURA',W-M,52,{align:'right'});
+    doc.text(bordado?'COSTO DE BORDADO':tresD?'COSTO DE IMPRESIÓN 3D':'COSTO DE COSTURA',W-M,52,{align:'right'});
     doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(...PZ);
     doc.text(hoy,W-M,70,{align:'right'});
     doc.text('Uso interno · no es cotización',W-M,84,{align:'right'});
@@ -117,6 +118,24 @@
 
       titulo('MANO DE OBRA');
       fila('Bordado ('+Math.round(d.punt).toLocaleString('es-CL')+' puntadas)', CLP(d.bord));
+    } else if(tresD){
+      titulo('LA PIEZA');
+      fila('Peso', d.peso+' g');
+      fila('N° de colores', d.col);
+      fila('Tiempo de impresión', d.h+' h');
+      fila('Post-proceso', Math.round(d.post)+' min');
+      fila('Unidades a producir', d.uni);
+
+      titulo('COSTOS POR PIEZA');
+      fila('Filamento', CLP(d.fil));
+      fila('Electricidad', CLP(d.ele));
+      fila('Desgaste de la impresora', CLP(d.maq));
+      fila('Tu tiempo (post-proceso)', CLP(d.mo));
+      fila('Empaque y extras', CLP(d.emp));
+      fila('Buffer por piezas falladas', CLP(d.fal));
+      linea();
+      fila('Costo total de producir', CLP(d.costo), true);
+      fila('Con margen ×'+d.mult.toFixed(2), CLP(d.unidad), true);
     } else {
       titulo('MATERIALES');
       (d.mats||[]).forEach(m=>{
@@ -149,7 +168,7 @@
     doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...PZ);
     doc.text(B.name||'Ayünka Borda Crea',M,812);
     doc.text('Bordamos. Creamos. Siempre con cariño.',W-M,812,{align:'right'});
-    doc.save((bordado?'Costo-bordado-':'Costo-costura-')+new Date().toISOString().slice(0,10)+'.pdf');
+    doc.save((bordado?'Costo-bordado-':tresD?'Costo-3d-':'Costo-costura-')+new Date().toISOString().slice(0,10)+'.pdf');
   }
   const CLP4v = n => isFinite(n) ? '$ '+(Math.round(n*10000)/10000).toLocaleString('es-CL',{maximumFractionDigits:4}) : '–';
 
