@@ -237,6 +237,7 @@
     <div id="cc_3d" style="display:none">
       <div class="card"><div class="sectiontitle">La pieza</div>
         <div class="formgrid">
+          <label class="field">Material<select id="t_mat"><option value="PLA">PLA</option><option value="PETG">PETG</option></select></label>
           <label class="field">Peso de la pieza (g)<input type="number" id="t_peso" step="0.1"></label>
           <label class="field">N° de colores<input type="number" id="t_col" min="1" max="4"></label>
           <label class="field">Tiempo de impresión (h)<input type="number" id="t_h" step="0.1"></label>
@@ -246,31 +247,36 @@
         </div>
         <div class="muted" style="margin-top:6px">Peso y tiempo salen del OrcaSlicer. Cada color extra suma 50% de filamento por la purga.</div>
       </div>
-      <div class="card"><div class="sectiontitle">Tus costos (se guardan, no hay que escribirlos cada vez)</div>
+      <div class="card"><div class="sectiontitle">Tus costos</div>
+        <div class="muted" style="margin:-4px 0 10px">Son los <b>mismos de Ajustes</b>, los que usan las Cotizaciones. Si los cambias aquí, cambian en toda la app: hay un solo juego de números.</div>
         <div class="formgrid">
-          <label class="field">Filamento (CLP por kilo)<input type="number" id="t_filkg"></label>
-          <label class="field">Empaque por pieza (CLP)<input type="number" id="t_emp"></label>
-          <label class="field">Valor de tu hora (CLP)<input type="number" id="t_hora"></label>
-          <label class="field">Tarifa eléctrica (CLP/kWh)<input type="number" id="t_kwh"></label>
-          <label class="field">Consumo impresora (kW)<input type="number" id="t_kw" step="0.01"></label>
-          <label class="field">Costo de la impresora (CLP)<input type="number" id="t_maq"></label>
-          <label class="field">Vida útil de la impresora (h)<input type="number" id="t_vida"></label>
-          <label class="field">Mantención y repuestos (CLP/h)<input type="number" id="t_mant"></label>
-          <label class="field">Piezas falladas (%)<input type="number" id="t_falla"></label>
+          <label class="field">PLA (CLP por kilo)<input type="number" id="p_pla"></label>
+          <label class="field">PETG (CLP por kilo)<input type="number" id="p_petg"></label>
+          <label class="field">Empaque por pieza (CLP)<input type="number" id="p_pack"></label>
+          <label class="field">Valor de tu hora (CLP)<input type="number" id="p_labor"></label>
+          <label class="field">Preparación por placa (min)<input type="number" id="p_prep"></label>
+          <label class="field">Tarifa eléctrica (CLP/kWh)<input type="number" id="p_kwh"></label>
+          <label class="field">Consumo impresora (kW)<input type="number" id="p_pow" step="0.01"></label>
+          <label class="field">Costo de la impresora (CLP)<input type="number" id="p_pcost"></label>
+          <label class="field">Años de amortización<input type="number" id="p_amyears"></label>
+          <label class="field">Días de uso al año<input type="number" id="p_days"></label>
+          <label class="field">Horas de uso al día<input type="number" id="p_hours"></label>
+          <label class="field">Piezas falladas (%)<input type="number" id="p_fail" step="0.1"></label>
         </div>
+        <div class="muted" style="margin-top:8px;font-size:12px">Vida útil de la impresora = años × días × horas. Con lo de hoy: <b id="t_vida_v">–</b> horas.</div>
       </div>
       <div class="card"><div class="sectiontitle">Ganancia</div>
         <div class="row" style="gap:14px;align-items:center">
-          <input type="range" id="t_mult" min="1.5" max="5" step="0.05" style="flex:1">
+          <input type="range" id="p_markup" min="1.5" max="5" step="0.05" style="flex:1">
           <b id="t_mult_v" class="num">×3.50</b>
         </div>
-        <div class="muted" style="margin-top:6px">Multiplica el costo total. Entre 3 y 4 es lo habitual en este rubro; mira el semáforo de más abajo antes de decidir.</div>
+        <div class="muted" style="margin-top:6px">Es el mismo multiplicador de Ajustes: tocarlo aquí cambia también lo que sale en las cotizaciones.</div>
       </div>
       <div class="card"><div class="sectiontitle">Resultado</div>
         <div class="row between" style="padding:3px 0"><span>Filamento</span><span id="t_d_fil" class="num"></span></div>
         <div class="row between" style="padding:3px 0"><span>Electricidad</span><span id="t_d_ele" class="num"></span></div>
         <div class="row between" style="padding:3px 0"><span>Desgaste de la impresora</span><span id="t_d_maq" class="num"></span></div>
-        <div class="row between" style="padding:3px 0"><span>Tu tiempo (post-proceso)</span><span id="t_d_mo" class="num"></span></div>
+        <div class="row between" style="padding:3px 0"><span>Tu tiempo (preparación + post-proceso)</span><span id="t_d_mo" class="num"></span></div>
         <div class="row between" style="padding:3px 0"><span>Empaque y extras</span><span id="t_d_emp" class="num"></span></div>
         <div class="row between" style="padding:3px 0"><span class="muted">Buffer por piezas falladas</span><span id="t_d_fal" class="num"></span></div>
         <hr style="border:none;border-top:1px solid var(--line,#dcd3c4);margin:8px 0">
@@ -409,31 +415,67 @@
             duro:mat+extra,horas};
   }
 
+  /* El 3D NO tiene formula propia: llama a calc.js, el mismo motor que usan
+     las Cotizaciones, con los parametros de DB.params (Ajustes). Asi el mismo
+     producto no puede salir a dos precios distintos segun por donde entres. */
+  function paramsDB(){ return (window.DB&&window.DB.params) || null; }
+  function pinta(P){
+    Object.keys(PMAP).forEach(id=>{
+      const e=document.getElementById(id); if(!e) return;
+      let v=P[PMAP[id]]; if(v==null) return;
+      if(PCT.indexOf(id)>=0) v=v*100;
+      e.value=v;
+    });
+  }
+  function guardaParams(){
+    const P=paramsDB(); if(!P) return;
+    Object.keys(PMAP).forEach(id=>{
+      const e=document.getElementById(id); if(!e) return;
+      let v=parseFloat(e.value); if(!isFinite(v)) return;
+      if(PCT.indexOf(id)>=0) v=v/100;
+      P[PMAP[id]]=v;
+    });
+    if(!P.amortYears) P.amortYears=1;
+    if(!P.daysYear)   P.daysYear=300;
+    if(!P.hoursDay)   P.hoursDay=8;
+    if(!P.markup)     P.markup=1;
+    try{ if(window.saveDB) window.saveDB(); }catch(e){}
+  }
+
   function calcT(){
-    const peso=val('t_peso'), col=Math.max(1,val('t_col')), h=val('t_h'), post=val('t_post');
-    const uni=Math.max(1,val('t_uni')), extra=val('t_extra');
-    const fil = peso*(val('t_filkg')/1000)*(1+0.5*(col-1));
-    const ele = h*val('t_kw')*val('t_kwh');
-    const vida= val('t_vida');
-    const maq = h*((vida>0?val('t_maq')/vida:0)+val('t_mant'));
-    const mo  = post/60*val('t_hora');
-    const emp = val('t_emp')+extra;
-    const base= fil+ele+maq+mo+emp;
-    const fal = base*(val('t_falla')/100);
-    const costo=base+fal;
-    const mult=val('t_mult');
-    const unidad=costo*mult;
-    const red=Math.round(unidad/500)*500;
-    const total=unidad*uni;
-    set('t_d_fil',CLP(fil)); set('t_d_ele',CLP(ele)); set('t_d_maq',CLP(maq));
-    set('t_d_mo',CLP(mo)); set('t_d_emp',CLP(emp)); set('t_d_fal',CLP(fal));
-    set('t_d_costo',CLP(costo)); set('t_d_uni',CLP(unidad)); set('t_d_red',CLP(red)); set('t_d_total',CLP(total));
-    const mv=document.getElementById('t_mult_v'); if(mv)mv.textContent='×'+mult.toFixed(2);
-    // duro = todo lo que pagas de verdad, sin tu tiempo (el buffer de fallas
-    // también hay que sacárselo al tiempo, o queda contado de más)
-    const duro=costo-mo*(1+val('t_falla')/100);
-    panelCalc('t_',unidad,duro,post/60);
-    return {tipo:'3d',peso,col,h,post,uni,extra,fil,ele,maq,mo,emp,fal,costo,mult,unidad,red,total,duro,horas:post/60};
+    const P=paramsDB(), C=window.calc;
+    const vacio={tipo:'3d',uni:1,unidad:0,total:0,costo:0,duro:0,horas:0,mult:1};
+    if(!P||!C){ set('t_d_costo','–'); set('t_d_uni','–'); return vacio; }
+
+    const peso=val('t_peso'), col=Math.max(1,val('t_col')), h=val('t_h');
+    const post=val('t_post'), uni=Math.max(1,val('t_uni')), extra=val('t_extra');
+    const mat=txt('t_mat')||'PLA';
+
+    // los extras por unidad entran como empaque, para que reciban el mismo
+    // tratamiento (buffer de fallas y markup) que el resto del costo
+    const pieza={grams:peso,timeH:h,colors:col,postMin:post,material:mat,
+                 filamentId:null,packOverride:(+P.pack||0)+extra};
+    const c=C.costPiece(pieza);
+
+    const costo=c.total, mult=+P.markup||1;
+    const unidad=C.suggestPrice(costo), red=C.round500(unidad), total=unidad*uni;
+
+    set('t_d_fil',CLP(c.plastico)); set('t_d_ele',CLP(c.electricidad));
+    set('t_d_maq',CLP(c.amortizacion)); set('t_d_mo',CLP(c.operario));
+    set('t_d_emp',CLP(c.empaque)); set('t_d_fal',CLP(c.fallos));
+    set('t_d_costo',CLP(costo)); set('t_d_uni',CLP(unidad));
+    set('t_d_red',CLP(red)); set('t_d_total',CLP(total));
+    const mv=document.getElementById('t_mult_v'); if(mv)mv.textContent='\u00d7'+mult.toFixed(2);
+    const vv=document.getElementById('t_vida_v');
+    if(vv)vv.textContent=Math.round((+P.amortYears||0)*(+P.daysYear||0)*(+P.hoursDay||0)).toLocaleString('es-CL');
+
+    // duro = todo menos tu tiempo (al que hay que sacarle tambien su buffer)
+    const duro=costo-c.operario*(1+(+P.failRate||0));
+    const horas=((c.prep||0)+(c.post||0))/60;
+    panelCalc('t_',unidad,duro,horas);
+    return {tipo:'3d',peso,col,h,post,uni,extra,mat,
+            fil:c.plastico,ele:c.electricidad,maq:c.amortizacion,mo:c.operario,
+            emp:c.empaque,fal:c.fallos,costo,mult,unidad,red,total,duro,horas};
   }
 
   const calcAll = ()=>{ calcB(); calcC(); calcT(); };
@@ -527,6 +569,10 @@
     Object.keys(DEF).forEach(k=>{const e=document.getElementById(k); if(!e)return;
       if(e.type==='checkbox') e.checked=!!s[k]; else e.value=s[k];});
     TXTKEYS.forEach(k=>{const e=document.getElementById(k); if(e && s[k]!=null) e.value=s[k];});
+    const P=paramsDB(); if(P) pinta(P);
+    Object.keys(PMAP).forEach(id=>{const e=document.getElementById(id); if(!e)return;
+      e.addEventListener('input',()=>{guardaParams();calcAll();});
+      e.addEventListener('change',()=>{guardaParams();calcAll();});});
 
     const q=document.getElementById('cc_quick');
     if(q) QUICK.forEach(n=>{const b=document.createElement('button'); b.className='btn ghost sm';
