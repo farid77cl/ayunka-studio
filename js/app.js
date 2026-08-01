@@ -299,6 +299,8 @@
         <label class="field" style="grid-column:1/3">Email<input id="q-email" value="${esc(q.client.email)}" oninput="A._quote.client.email=this.value"></label></div>
       <div class="sectiontitle">Ítems <span class="muted">(descripción · cant · precio)</span></div>${rows||'<div class="muted">Agrega ítems</div>'}
       <div class="row" style="margin-top:8px"><select id="q-add" onchange="A.qAdd(this.value)" style="flex:1">${prodOpts}</select><button class="btn ghost sm" onclick="A.qAddFree()">+ Ítem libre</button><button class="btn ghost sm" onclick="A.qCalcOpen()">+ Calcular pieza</button></div>
+      ${(()=>{const ps=preciosCostos(); if(!ps.length) return '<div class="muted" style="margin-top:6px;font-size:12px">Los precios que guardes en la pestaña Costos van a aparecer acá para agregarlos de una.</div>';
+        return `<div class="row" style="margin-top:6px"><select id="q-costo" onchange="A.qAddCosto(this.value)" style="flex:1"><option value="">+ desde Costos (${ps.length})…</option>${ps.map(p=>`<option value="${esc(p.n)}">${esc(p.n)} · ${esc(p.t)} · ${fmt(+p.p||0)}</option>`).join('')}</select></div>`;})()}
       <label class="field" style="margin-top:12px">Nota<input id="q-note" value="${esc(q.note)}" oninput="A._quote.note=this.value"></label>
       <label class="row" style="margin-top:10px;gap:8px"><input type="checkbox" style="width:auto" ${q.ivaIncluded?'checked':''} onchange="A._quote.ivaIncluded=this.checked;A.qRefresh()"> Incluir IVA 19%</label>
       <div class="row between" style="margin-top:10px"><span>Total</span><b id="q-tot" style="font-size:20px">${fmt(tot)}</b></div>
@@ -309,6 +311,30 @@
   function qRefresh(){const q=A._quote,net=q.items.reduce((a,i)=>a+(+i.qty||0)*(+i.unitPrice||0),0),tot=net*(q.ivaIncluded?(1+DB.params.iva):1);const e=$('#q-tot');if(e)e.textContent=fmt(tot);const pe=$('#q-prod');if(pe){const ph=calc.printHoursOfQuote(q.items);pe.textContent=ph>0?('⏱ Producción ≈ '+calc.hm(ph)+' de impresión · '+calc.productionDays(ph)+' día(s) hábiles'):'';}}
   function qAdd(pid){if(!pid)return;const p=DB.products.find(x=>x.id===pid);A._quote.items.push({name:p.name,qty:1,unitPrice:calc.priceOf(p),productId:p.id});renderQuoteModal();}
   function qAddFree(){A._quote.items.push({name:'',qty:1,unitPrice:0,productId:null});renderQuoteModal();}
+
+  /* ---- Puente entre la pestaña Costos y las Cotizaciones ----
+     Los precios que se guardan en Costos (bordado, costura y 3D) viven en
+     localStorage 'ayunka-precios-v1'. Desde aquí se leen para poder meterlos
+     como ítem de una cotización formal, igual que un producto del catálogo. */
+  function preciosCostos(){ try{ return JSON.parse(localStorage.getItem('ayunka-precios-v1')||'[]'); }catch(e){ return []; } }
+  function qAddCosto(nombre){
+    if(!nombre) return;
+    const p=preciosCostos().find(x=>String(x.n)===String(nombre));
+    if(!p) return;
+    A._quote.items.push({name:p.n,qty:1,unitPrice:+p.p||0,productId:null,costoRef:{tipo:p.t,costo:+p.c||0}});
+    renderQuoteModal();
+  }
+  /* Se llama desde la pestaña Costos. Si hay una cotización abierta le suma el
+     ítem; si no, abre una nueva con el ítem ya puesto. */
+  function cotizarDesdeCostos(item){
+    if(!item||!item.name){ alert('Ponle un nombre al producto antes de llevarlo a una cotización.'); return; }
+    const it={name:item.name,qty:Math.max(1,+item.qty||1),unitPrice:Math.round(+item.unitPrice||0),productId:null,
+              costoRef:{tipo:item.tipo||'',costo:Math.round(+item.costo||0)}};
+    if(A._quote){ A._quote.items.push(it); renderQuoteModal(); return; }
+    editQuote(null);
+    A._quote.items.push(it);
+    renderQuoteModal();
+  }
   function qItem(i,k,v){A._quote.items[i][k]=(k==='name')?v:num(v);qRefresh();}
   function qDel(i){A._quote.items.splice(i,1);renderQuoteModal();}
   function saveQuote(andPdf){const q=A._quote;q.clientId=upsertClient(q.client)||q.clientId;
@@ -702,7 +728,7 @@
     addDesigns,delProductsNoFile,editProduct,renderProductModal,prodRefresh,prodTime,prodImg,prodAddFiles,prodOpenFile,viewFile,viewUrl,prodDelFile,prodDelImg,segRows,pSeg,prodColors,saveProduct,delProduct,
     editFil,saveFil,delFil,filAuto,editPlate,renderPlateModal,plateAdd,plateQty,plateDel,plateRefresh,savePlate,delPlate,printPlate,
     editClient,saveClient,delClient,quoteForClient,
-    editQuote,renderQuoteModal,qPickClient,qEditItem,qSaveItem,qToCalc,qCalcOpen,qCalcEdit,renderCalcModal,qcSeg,qcSegAdd,qcSegDel,qcTime,qcRefresh,qcPrice,qCalcAdd,qAdd,qAddFree,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
+    editQuote,renderQuoteModal,qPickClient,qEditItem,qSaveItem,qToCalc,qCalcOpen,qCalcEdit,renderCalcModal,qcSeg,qcSegAdd,qcSegDel,qcTime,qcRefresh,qcPrice,qCalcAdd,qAdd,qAddFree,qAddCosto,cotizarDesdeCostos,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
     planSync,editOrder,orderProd,saveOrder,delOrder,orderCycle,approveQuote,waQuote,openVenta,renderVentaModal,vAdd,vAddFree,vItem,vDel,saveVenta,delVenta,openGasto,saveGasto,delGasto,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,saveSupa,supaOff,syncSave,syncOff,_syncNote,restoreBk,expData,impData,expCfg,impCfg,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null,_venta:null};
 
   window.__render=render;

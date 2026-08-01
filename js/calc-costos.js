@@ -42,12 +42,16 @@
     b_carr:5.1,b_cab:3.3,b_mult:2.55,b_spm:700,b_obj:0,
     // costura
     c_uni:1,c_min:60,c_hora:4000,c_mult:2,c_extra:0,c_obj:0,
-    // 3D
-    t_peso:20,t_col:1,t_h:1.5,t_post:5,t_uni:1,t_extra:0,t_obj:0,
-    t_filkg:15000,t_kwh:160,t_kw:0.12,t_maq:779990,t_vida:4000,t_mant:20,
-    t_falla:8,t_hora:4000,t_emp:350,t_mult:3.5
+    // 3D — solo la pieza. Los costos salen de DB.params (Ajustes), que es
+    // el mismo lugar del que lee calc.js para las Cotizaciones.
+    t_peso:20,t_col:1,t_h:1.5,t_post:5,t_uni:1,t_extra:0,t_obj:0
   };
-  const TXTKEYS=['b_mkt','c_mkt','t_mkt','b_nom','c_nom','t_nom','c_nombre'];
+  // parametros compartidos: id del input -> campo de DB.params
+  const PMAP={p_pla:'plaPrice',p_petg:'petgPrice',p_kwh:'kwh',p_pow:'powerKw',
+              p_pcost:'printerCost',p_amyears:'amortYears',p_days:'daysYear',p_hours:'hoursDay',
+              p_prep:'prepMin',p_labor:'laborH',p_pack:'pack',p_fail:'failRate',p_markup:'markup'};
+  const PCT=['p_fail'];  // se muestran en %, se guardan en 0-1
+  const TXTKEYS=['b_mkt','c_mkt','t_mkt','b_nom','c_nom','t_nom','c_nombre','t_mat'];
 
   function load(){ try{return Object.assign({},DEF,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){return Object.assign({},DEF);} }
   function save(){
@@ -88,7 +92,10 @@
         <input type="text" id="${p}nom" placeholder="Nombre del producto" style="flex:2">
         <button class="btn primary" onclick="CalcCostos.guardar('${tipo}')">Guardar precio</button>
       </div>
-      <div class="muted" style="margin-top:6px;font-size:12px">Guarda el precio sugerido, o el tuyo si escribiste uno arriba.</div>
+      <div class="row" style="gap:8px;margin-top:8px">
+        <button class="btn ghost sm" style="flex:1" onclick="CalcCostos.aCotizacion('${tipo}')">📄 Llevar a una cotización</button>
+      </div>
+      <div class="muted" style="margin-top:6px;font-size:12px">Guarda el precio sugerido, o el tuyo si escribiste uno arriba. «Llevar a una cotización» abre la cotización formal con este ítem ya puesto.</div>
     </div>`;
   }
 
@@ -448,6 +455,35 @@
     savePrecios(arr); renderPrecios();
   }
   function borrar(i){ const arr=loadPrecios(); arr.splice(i,1); savePrecios(arr); renderPrecios(); }
+
+  /* Puente con la ficha de Cotizaciones: manda el cálculo actual como ítem de
+     una cotización formal. Si ya hay una cotización abierta, se le suma. */
+  function aCotizacion(which){
+    if(!window.A || typeof window.A.cotizarDesdeCostos!=='function'){
+      alert('No se pudo abrir la cotización. Recarga la app.'); return;
+    }
+    const p = which==='B'?'b_' : which==='C'?'c_' : 't_';
+    const d = which==='B'?calcB() : which==='C'?calcC() : calcT();
+    let nombre = txt(p+'nom');
+    if(!nombre && which==='C') nombre = txt('c_nombre');
+    if(!nombre){ alert('Ponle un nombre al producto antes de llevarlo a una cotización.'); return; }
+    const obj=val(p+'obj');
+    window.A.cotizarDesdeCostos({
+      name:nombre,
+      qty:d.uni||1,
+      unitPrice: obj>0 ? obj : d.unidad,
+      costo:d.duro,
+      tipo: which==='B'?'Bordado' : which==='C'?'Costura' : '3D'
+    });
+  }
+  /* Lo mismo, pero desde una fila de "Precios guardados" */
+  function cotizarGuardado(i){
+    const x=loadPrecios()[i]; if(!x) return;
+    if(!window.A || typeof window.A.cotizarDesdeCostos!=='function'){
+      alert('No se pudo abrir la cotización. Recarga la app.'); return;
+    }
+    window.A.cotizarDesdeCostos({name:x.n,qty:1,unitPrice:x.p,costo:x.c,tipo:x.t});
+  }
   function renderPrecios(){
     const wrap=document.getElementById('cc_precios'); if(!wrap)return;
     const arr=loadPrecios();
@@ -459,7 +495,8 @@
           <div class="muted" style="font-size:12px">${esc(x.t)} · costo ${CLP(x.c)} · ${esc(x.f)}</div>
         </div>
         <b class="num" style="margin-right:10px">${CLP(x.p)}</b>
-        <button class="btn ghost" style="padding:6px 10px" onclick="CalcCostos.borrar(${i})">×</button>
+        <button class="btn ghost" style="padding:6px 10px" title="Llevar a una cotización" onclick="CalcCostos.cotizarGuardado(${i})">📄</button>
+        <button class="btn ghost" style="padding:6px 10px" title="Borrar" onclick="CalcCostos.borrar(${i})">×</button>
       </div>`).join('');
   }
   function exportar(){
@@ -520,5 +557,5 @@
     }catch(e){ alert('No se pudo generar el PDF: '+e.message); }
   }
 
-  window.CalcCostos={view,init,tab,addRow,pdf,guardar,borrar,exportar};
+  window.CalcCostos={view,init,tab,addRow,pdf,guardar,borrar,exportar,aCotizacion,cotizarGuardado};
 })();
