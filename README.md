@@ -104,3 +104,20 @@ Dado que la aplicación web es pública (en GitHub Pages), los datos están prot
 2. **Acceso exclusivo:** Cualquiera que abra tu URL web compartirá el mismo espacio si está configurado en el código, por lo que se recomienda mantener tu URL de GitHub Pages e ID de proyecto privada o cambiar el nombre del `workspace` en `js/config.js` a un valor único y secreto (ej. `"ayunka-secreto-123"`).
 3. **Inactividad de Supabase (Importante):** En la versión gratuita de Supabase, los servidores se pausan automáticamente tras 7 días de inactividad. Si las fotos o STL no cargan, ve a tu panel de Supabase y haz clic en **Restore Project** (Restaurar proyecto) para encenderlo de nuevo.
 
+## Pestaña Impresiones (Taller → Impresiones)
+
+Lo que sale de la **Creality K2** llega aquí como pendiente, con los **gramos y horas reales**
+que midió la máquina — no los estimados del rebanador — y un precio sugerido calculado con la
+fórmula de la calculadora.
+
+- **Aprobar** abre el formulario de producto prellenado. Ahí le agregas el **costo extra**
+  (el LED de la caja de luz, un imán, una borla), la foto y el archivo para reimprimir.
+- **Descartar** lo saca de la lista. Se puede devolver a pendientes.
+- Las decisiones viven en `DB.bandeja`, así que aguantan una recarga de la bandeja.
+
+La lista sale de `impresion/bandeja.json` en Supabase, que escribe el flujo de n8n
+*Recibir historial de la K2*. Como la impresora está en otra red que n8n, el dato lo lleva el
+navegador: ver `../sesion-log.md`, sesión 17 y 18.
+
+**El extra entra antes del markup**, igual que el empaque: un LED de $2.500 suma $2.822 al
+costo (por el buffer de fallas) y unos $10.000 al precio sugerido con el ×3,5 actual.

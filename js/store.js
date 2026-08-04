@@ -4,7 +4,7 @@
   const uid = () => Math.random().toString(36).slice(2,9);
 
   function p(name,material,grams,timeH,colors,postMin){
-    return { id: uid(), name, material, grams, timeH, colors, postMin, packOverride:null, price:null, stock:0,
+    return { id: uid(), name, material, grams, timeH, colors, postMin, packOverride:null, extraCosto:0, extraNota:'', price:null, stock:0,
              filamentId:null, imageId:null, files:[] };
   }
 

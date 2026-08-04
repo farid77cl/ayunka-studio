@@ -22,10 +22,13 @@
     const operario=(prep+post)/60*P().laborH;
     const amortizacion=h*amortPerH();
     const empaque=prod.packOverride!=null?+prod.packOverride:P().pack;
-    const base=plastico+electricidad+operario+amortizacion+empaque;
+    // Extras del producto (LED, imán, borla…): entran antes del markup, igual que el
+    // empaque, para que reciban el buffer de fallas y el multiplicador.
+    const extra=+prod.extraCosto||0;
+    const base=plastico+electricidad+operario+amortizacion+empaque+extra;
     const fallos=base*P().failRate;
     const total=base+fallos;
-    return {plastico,electricidad,operario,amortizacion,empaque,base,fallos,total,prep,post};
+    return {plastico,electricidad,operario,amortizacion,empaque,extra,base,fallos,total,prep,post};
   }
   const suggestPrice=(t)=>t*P().markup;
   const round500=(x)=>Math.round(x/500)*500;

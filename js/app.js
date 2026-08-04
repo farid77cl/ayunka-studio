@@ -15,7 +15,7 @@
 
   const AREAS=[
     {id:'inicio', label:'Inicio', tabs:[{id:'inicio',label:'Inicio'}]},
-    {id:'taller', label:'Taller', tabs:[{id:'productos',label:'Productos'},{id:'placas',label:'Placas'},{id:'filamentos',label:'Filamentos'},{id:'pedidos',label:'Producción'}]},
+    {id:'taller', label:'Taller', tabs:[{id:'productos',label:'Productos'},{id:'impresiones',label:'Impresiones'},{id:'placas',label:'Placas'},{id:'filamentos',label:'Filamentos'},{id:'pedidos',label:'Producción'}]},
     {id:'ventas', label:'Ventas', tabs:[{id:'clientes',label:'Clientes'},{id:'cotizaciones',label:'Cotizaciones'},{id:'costos',label:'Costos B/C'},{id:'whatsapp',label:'WhatsApp'},{id:'finanzas',label:'Finanzas'}]},
     {id:'redes',  label:'Redes',  tabs:[{id:'nuevo',label:'Nuevo post'},{id:'aprobar',label:'Aprobar'},{id:'reportes',label:'Reportes'}]},
     {id:'config', label:'Ajustes',tabs:[{id:'plan',label:'Planificación'},{id:'ajustes',label:'Ajustes'}]}
@@ -147,6 +147,11 @@
       ${(+p.colors>=2)?`<div class="sectiontitle">Colores y filamento por color</div>
       <div id="seg-list">${segRows(p)}</div>
       <div class="muted" style="margin-top:4px">Elige el filamento de cada color y cuántos gramos usa. El peso total se suma solo.</div>`:''}
+      <div class="sectiontitle">Extras del producto</div>
+      <div class="row" style="gap:8px">
+        <label class="field" style="flex:1">Costo extra por pieza (CLP)<input type="number" value="${p.extraCosto||0}" oninput="A._prod.extraCosto=+this.value||0;A.prodRefresh()"></label>
+        <label class="field" style="flex:2">¿De qué? (LED, imán, borla…)<input value="${esc(p.extraNota||'')}" oninput="A._prod.extraNota=this.value"></label>
+      </div>
       <div class="sectiontitle">Archivos STL / 3MF <span class="muted">(uno o varios)</span></div>
       ${files||'<div class="muted">Sin archivos asociados</div>'}
       <label class="field" style="margin-top:6px">Agregar archivo(s)<input type="file" multiple accept=".stl,.3mf,.obj,.gcode,.step,.stp,.amf" onchange="A.prodAddFiles(this)"></label>
@@ -719,8 +724,8 @@
   }
 
   /* ---------- ROUTER ---------- */
-  const VIEWS={inicio:vInicio,productos:vProductos,placas:vPlacas,filamentos:vFilamentos,clientes:vClientes,cotizaciones:vCotiz,costos:()=>(window.CalcCostos?CalcCostos.view():'<div class="card">Cargando…</div>'),nuevo:()=>(window.NUEVO?NUEVO.view():'<div class="card">Cargando…</div>'),aprobar:()=>(window.RRSS?RRSS.viewAprobar():'<div class="card">Cargando…</div>'),reportes:()=>(window.RRSS?RRSS.viewReportes():'<div class="card">Cargando…</div>'),whatsapp:()=>(window.WSP?WSP.view():'<div class="card">Cargando…</div>'),pedidos:vPedidos,finanzas:vFinanzas,plan:vPlan,ajustes:vAjustes};
-  function render(){let id=(location.hash.replace('#/','')||'inicio');if(!VIEWS[id])id='inicio';renderTabs(id);$('#view').innerHTML=VIEWS[id]();hydrate();if(id==='costos'&&window.CalcCostos){try{CalcCostos.init();}catch(e){}}if(id==='productos'&&window.IG&&!A._igListo){A._igListo=true;IG.cargar().then(()=>{if((location.hash.replace('#/','')||'inicio')==='productos')render();});}if(id==='nuevo'&&window.NUEVO){try{NUEVO.init();}catch(e){}}if(id==='aprobar'&&window.RRSS){try{RRSS.initAprobar();}catch(e){}}if(id==='reportes'&&window.RRSS){try{RRSS.initReportes();}catch(e){}}window.scrollTo(0,0);}
+  const VIEWS={inicio:vInicio,productos:vProductos,impresiones:()=>(window.IMPRESIONES?IMPRESIONES.view():'<div class="card">Cargando…</div>'),placas:vPlacas,filamentos:vFilamentos,clientes:vClientes,cotizaciones:vCotiz,costos:()=>(window.CalcCostos?CalcCostos.view():'<div class="card">Cargando…</div>'),nuevo:()=>(window.NUEVO?NUEVO.view():'<div class="card">Cargando…</div>'),aprobar:()=>(window.RRSS?RRSS.viewAprobar():'<div class="card">Cargando…</div>'),reportes:()=>(window.RRSS?RRSS.viewReportes():'<div class="card">Cargando…</div>'),whatsapp:()=>(window.WSP?WSP.view():'<div class="card">Cargando…</div>'),pedidos:vPedidos,finanzas:vFinanzas,plan:vPlan,ajustes:vAjustes};
+  function render(){let id=(location.hash.replace('#/','')||'inicio');if(!VIEWS[id])id='inicio';renderTabs(id);$('#view').innerHTML=VIEWS[id]();hydrate();if(id==='costos'&&window.CalcCostos){try{CalcCostos.init();}catch(e){}}if(id==='productos'&&window.IG&&!A._igListo){A._igListo=true;IG.cargar().then(()=>{if((location.hash.replace('#/','')||'inicio')==='productos')render();});}if(id==='impresiones'&&window.IMPRESIONES){try{IMPRESIONES.init();}catch(e){}}if(id==='nuevo'&&window.NUEVO){try{NUEVO.init();}catch(e){}}if(id==='aprobar'&&window.RRSS){try{RRSS.initAprobar();}catch(e){}}if(id==='reportes'&&window.RRSS){try{RRSS.initReportes();}catch(e){}}window.scrollTo(0,0);}
   window.addEventListener('hashchange',render);
   $('#menuBtn').addEventListener('click',()=>$('#tabs').classList.toggle('open'));
 
@@ -731,6 +736,7 @@
     editQuote,renderQuoteModal,qPickClient,qEditItem,qSaveItem,qToCalc,qCalcOpen,qCalcEdit,renderCalcModal,qcSeg,qcSegAdd,qcSegDel,qcTime,qcRefresh,qcPrice,qCalcAdd,qAdd,qAddFree,qAddCosto,cotizarDesdeCostos,qItem,qDel,qRefresh,saveQuote,delQuote,pdfQuote,
     planSync,editOrder,orderProd,saveOrder,delOrder,orderCycle,approveQuote,waQuote,openVenta,renderVentaModal,vAdd,vAddFree,vItem,vDel,saveVenta,delVenta,openGasto,saveGasto,delGasto,dayDetail,renderDayModal,dayHours,dayJobStatus,dayJobLink,dayJobAdd,dayJobDel,dayOpenFile,daySave,saveParams,saveSupa,supaOff,syncSave,syncOff,_syncNote,restoreBk,expData,impData,expCfg,impCfg,reset:window.resetDB,_prod:null,_plate:null,_quote:null,_day:null,_calc:null,_venta:null};
 
+  window.A._toast=toast;
   window.__render=render;
   try{ window.__syncCfgRaw = JSON.stringify((JSON.parse(localStorage.getItem('ayunka-sync-cfg')||'null')||{}).firebase||(window.AYUNKA_CONFIG&&window.AYUNKA_CONFIG.firebase)||'',null,0); }catch(e){}
   if(window.Sync&&window.Sync.configured()){ window.Sync.init(); }
