@@ -180,5 +180,66 @@
     }
   }
 
-  window.IMPRESIONES = { traerCatalogo, avisoDescarga, urlImpresora, view, init: () => { pinta(); if (!cache) recargar(); }, recargar, aprobar, descartar, reponer, filtrar };
+
+  /* ---------- Subir a la nube lo que quedó en el dispositivo ----------
+     Antes los archivos y las fotos podían quedar en IndexedDB o como data: URL,
+     y entonces existían solo en ese computador. En los demás salían rotos.
+     Esto los sube a Supabase de una vez y deja todo remoto. */
+  async function subirTodoALaNube() {
+    if (!(window.Supa && window.Supa.configured())) {
+      alert('Primero configura Supabase en Ajustes.'); return;
+    }
+    const DB = window.DB;
+    const pendientes = (DB.products || []).reduce((n, p) => n
+      + (p.imageId ? 1 : 0)
+      + (String(p.imageUrl || '').startsWith('data:') ? 1 : 0)
+      + (p.files || []).filter(f => f.id && !f.url).length, 0);
+    if (!pendientes) { alert('No queda nada guardado en el dispositivo: ya está todo en la nube.'); return; }
+    if (!confirm('Hay ' + pendientes + ' archivo(s) o foto(s) guardados solo en este dispositivo.\n\nSe suben a Supabase y quedan disponibles desde cualquier lado. ¿Seguimos?')) return;
+
+    let ok = 0; const fallaron = [];
+    const dataUrlABlob = async u => (await fetch(u)).blob();
+
+    for (const p of (DB.products || [])) {
+      // foto guardada en IndexedDB
+      if (p.imageId) {
+        try {
+          const f = await window.IDB.getFile(p.imageId);
+          if (f && f.blob) {
+            p.imageUrl = await window.Supa.upload(f.blob, (p.name || 'producto') + '.jpg');
+            window.IDB.delFile(p.imageId).catch(() => {});
+            p.imageId = null; ok++;
+          } else { fallaron.push((p.name || '?') + ' · foto (no está en este dispositivo)'); }
+        } catch (e) { fallaron.push((p.name || '?') + ' · foto: ' + (e.message || e)); }
+      }
+      // foto incrustada como data: URL — pesa mucho y no viaja bien
+      if (String(p.imageUrl || '').startsWith('data:')) {
+        try {
+          p.imageUrl = await window.Supa.upload(await dataUrlABlob(p.imageUrl), (p.name || 'producto') + '.jpg');
+          ok++;
+        } catch (e) { fallaron.push((p.name || '?') + ' · foto incrustada: ' + (e.message || e)); }
+      }
+      // archivos STL/3MF en IndexedDB
+      for (const f of (p.files || [])) {
+        if (!f.id || f.url) continue;
+        try {
+          const g = await window.IDB.getFile(f.id);
+          if (g && g.blob) {
+            f.url = await window.Supa.upload(g.blob, f.name || 'archivo');
+            window.IDB.delFile(f.id).catch(() => {});
+            delete f.id; ok++;
+          } else { fallaron.push((p.name || '?') + ' · ' + (f.name || 'archivo') + ' (no está en este dispositivo)'); }
+        } catch (e) { fallaron.push((p.name || '?') + ' · ' + (f.name || 'archivo') + ': ' + (e.message || e)); }
+      }
+    }
+
+    window.saveDB();
+    if (window.__render) window.__render();
+    let msg = ok + ' subido(s) a la nube.';
+    if (fallaron.length) msg += '\n\nNo se pudo con ' + fallaron.length + ':\n· ' + fallaron.slice(0, 8).join('\n· ')
+      + '\n\nLos que dicen «no está en este dispositivo» se subieron desde otro computador: ábrelo ahí y repite, o vuelve a adjuntarlos.';
+    alert(msg);
+  }
+
+  window.IMPRESIONES = { traerCatalogo, subirTodoALaNube, avisoDescarga, urlImpresora, view, init: () => { pinta(); if (!cache) recargar(); }, recargar, aprobar, descartar, reponer, filtrar };
 })();

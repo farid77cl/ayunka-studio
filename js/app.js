@@ -110,6 +110,7 @@
     return `<div class="row between"><h1 class="page">Productos</h1>
       <div class="row">${window.AYUNKA_DESIGNS?`<button class="btn ghost sm" onclick="A.addDesigns()">+ Diseños Ayünka</button>`:''}
         <button class="btn ghost sm" onclick="IMPRESIONES.traerCatalogo()">Traer catálogo</button>
+        <button class="btn ghost sm" onclick="IMPRESIONES.subirTodoALaNube()">Subir a la nube</button>
         <button class="btn ghost sm" onclick="A.delProductsNoFile()">Limpiar sin archivo</button>
         <button class="btn primary" onclick="A.editProduct()">+ Nuevo</button></div></div>
       <p class="sub">Costo de producción y precio sugerido por pieza</p>
@@ -125,7 +126,11 @@
     const filOpts=`<option value="">— precio material por defecto —</option>`+DB.filaments.map(f=>`<option value="${f.id}" ${p.filamentId===f.id?'selected':''}>${esc(f.color)} · ${esc(f.marca)} (${fmt(f.rollPrice/f.rollGrams*1000)}/kg)</option>`).join('');
     const c=calc.costPiece(p),pr=calc.priceOf(p);
     const img=p.imageUrl?`<img class="thumb big" src="${esc(p.imageUrl)}" alt="">`:(p.imageId?`<img class="thumb big" data-img-id="${p.imageId}" alt="">`:`<div class="thumb big ph"><i>🧵</i></div>`);
-    const files=(p.files||[]).map(f=>{const v=f.url?`A.viewUrl('${f.url}','${esc(f.name)}')`:`A.viewFile('${f.id}','${esc(f.name)}')`;const k=f.id||f.url;return `<div class="row between" style="margin:3px 0"><span>📄 ${esc(f.name)} <span class="tag">${f.url?'nube':'local'}</span></span><span class="row"><button class="btn ghost sm" onclick="${v}">Ver</button><button class="linkish" onclick="A.prodDelFile('${esc(k)}')">quitar</button></span></div>`;}).join('');
+    const files=(p.files||[]).map(f=>{const k=f.id||f.url;
+      // Los que todavía tienen id son de la época en que se guardaban en el dispositivo.
+      // Se marcan para que se vea qué falta migrar; el botón «Subir a la nube» los arregla.
+      const v=f.url?`A.viewUrl('${f.url}','${esc(f.name)}')`:`A.viewFile('${f.id}','${esc(f.name)}')`;
+      return `<div class="row between" style="margin:3px 0"><span>📄 ${esc(f.name)}${f.url?'':' <span class="tag warn">sin subir</span>'}</span><span class="row"><button class="btn ghost sm" onclick="${v}">Ver</button><button class="linkish" onclick="A.prodDelFile('${esc(k)}')">quitar</button></span></div>`;}).join('');
     modal(`<h2>${p.id?'Editar':'Nuevo'} producto</h2>
       <div class="row" style="gap:14px;align-items:flex-start">${img}
         <div style="flex:1"><label class="field">Nombre<input id="f-name" value="${esc(p.name)}" oninput="A._prod.name=this.value"></label>
@@ -171,11 +176,17 @@
   function prodColors(v){const p=A._prod;p.colors=Math.max(1,+v||1);if(+p.colors>=2){p.segments=p.segments||[];while(p.segments.length<+p.colors)p.segments.push({filamentId:p.filamentId||null,grams:''});p.segments.length=+p.colors;p.grams=p.segments.reduce((a,seg)=>a+(+seg.grams||0),0);}renderProductModal();}
   function prodTime(){A._prod.timeH=calc.toHours(document.getElementById('f-th').value,document.getElementById('f-tm').value);prodRefresh();}
   function prodRefresh(){const p=A._prod,c=calc.costPiece(p),pr=calc.priceOf(p);const s=(i,v)=>{const e=document.getElementById(i);if(e)e.innerHTML=v;};s('pp-tot',fmt(c.total));s('pp-pr',fmt(pr));s('pp-mg',pct(calc.marginPct(pr,c.total)));}
-  function prodImg(inp){const f=inp.files[0];if(!f)return;const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{const cloud=window.Supa&&window.Supa.configured();const max=cloud?900:440;let w=img.width,h=img.height;if(w>h){if(w>max){h=Math.round(h*max/w);w=max;}}else{if(h>max){w=Math.round(w*max/h);h=max;}}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
-    if(cloud){ toast('Subiendo foto a la nube…'); c.toBlob(async(blob)=>{try{const url=await window.Supa.upload(blob,(A._prod.name||'producto')+'.jpg');if(A._prod.imageId){IDB.delFile(A._prod.imageId);A._prod.imageId=null;}A._prod.imageUrl=url;renderProductModal();toast('Foto subida');}catch(e){toast('Error al subir: '+(e.message||e));}},'image/jpeg',0.82); }
-    else { try{const url=c.toDataURL('image/jpeg',0.7);if(A._prod.imageId){IDB.delFile(A._prod.imageId);A._prod.imageId=null;}A._prod.imageUrl=url;renderProductModal();}catch(e){toast('No se pudo procesar la imagen');} }
+  // Todo va a Supabase. Nada local: antes había fotos que existían solo en un
+  // dispositivo y en los demás salían rotas.
+  function prodImg(inp){const f=inp.files[0];if(!f)return;
+    if(!(window.Supa&&window.Supa.configured())){toast('Configura Supabase en Ajustes: las fotos van a la nube, no al dispositivo');return;}
+    const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{const max=900;let w=img.width,h=img.height;if(w>h){if(w>max){h=Math.round(h*max/w);w=max;}}else{if(h>max){w=Math.round(w*max/h);h=max;}}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+      toast('Subiendo foto…'); c.toBlob(async(blob)=>{try{const url=await window.Supa.upload(blob,(A._prod.name||'producto')+'.jpg');if(A._prod.imageId){IDB.delFile(A._prod.imageId);A._prod.imageId=null;}A._prod.imageUrl=url;renderProductModal();toast('Foto subida');}catch(e){toast('Error al subir: '+(e.message||e));}},'image/jpeg',0.82);
   };img.onerror=()=>toast('Imagen no válida');img.src=fr.result;};fr.onerror=()=>toast('No se pudo leer la imagen');fr.readAsDataURL(f);}
-  async function prodAddFiles(inp){const cloud=window.Supa&&window.Supa.configured();for(const f of inp.files){ if(cloud){ try{toast('Subiendo '+f.name+'…');const url=await window.Supa.upload(f,f.name);A._prod.files.push({name:f.name,url:url});}catch(e){toast('Error al subir '+f.name+': '+(e.message||e));} } else { try{const fid=await fileToBlobStore(f,'stl');A._prod.files.push({id:fid,name:f.name});}catch(e){toast('No se pudo adjuntar');} } } renderProductModal(); if(cloud)toast('Archivo(s) subido(s)'); }
+  async function prodAddFiles(inp){
+    if(!(window.Supa&&window.Supa.configured())){toast('Configura Supabase en Ajustes: los archivos van a la nube, no al dispositivo');return;}
+    for(const f of inp.files){ try{toast('Subiendo '+f.name+'…');const url=await window.Supa.upload(f,f.name);A._prod.files.push({name:f.name,url:url});}catch(e){toast('Error al subir '+f.name+': '+(e.message||e));} }
+    renderProductModal(); toast('Archivo(s) subido(s)'); }
   function prodOpenFile(fid){IDB.openFile(fid).then(ok=>{if(!ok)toast('Archivo no encontrado');});}
   function viewUrl(url,name){ window.STLViewer.openUrl(url,name); }
   async function viewFile(fid,name){ try{ const f=await IDB.getFile(fid); if(!f){toast('Archivo local: se subió en otro dispositivo. Para verlo en todos lados, usa el catálogo «+ Diseños Ayünka».');return;} window.STLViewer.open(f.blob,name||f.name); }catch(e){ toast('No se pudo abrir el visor'); } }
