@@ -19,8 +19,8 @@
   const D={}; let tipo='posts', filtro='todos', sucio=false;
   const esc = s => (s||'').toString().replace(/</g,'&lt;');
   const fecha = s => s ? new Date(s).toLocaleString('es-CL',{dateStyle:'medium',timeStyle:'short'}) : '—';
-  // ddmmaa para las fechas ya formateadas que vienen como 2026-08-04
-  const ddmmaa = f => { const m=String(f||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3]+m[2]+m[1].slice(2) : (f||''); };
+  // dd-mm-aa para las fechas ya formateadas que vienen como 2026-08-04
+  const ddmmaa = f => { const m=String(f||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3]+'-'+m[2]+'-'+m[1].slice(2) : (f||''); };
 
   function cfg(){
     try{ const c=JSON.parse(localStorage.getItem('ayunka-supa-cfg')); if(c&&c.url&&c.key) return c; }catch(e){}
