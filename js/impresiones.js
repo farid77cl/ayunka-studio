@@ -104,5 +104,52 @@
   function reponer(a) { delete decisiones()[a]; window.saveDB(); pinta(); }
   function filtrar(f) { filtro = f; if (window.__render) window.__render(); setTimeout(pinta, 0); }
 
-  window.IMPRESIONES = { view, init: () => { pinta(); if (!cache) recargar(); }, recargar, aprobar, descartar, reponer, filtrar };
+
+  /* ---------- Traer el catálogo real de Ayünka ----------
+     Empareja por SKU: actualiza lo que ya existe, agrega lo que falta y NUNCA borra.
+     Lo que Farid haya editado a mano (precio, foto propia, archivos) se respeta. */
+  const URL_CATALOGO = 'https://ncuvdpydwnepbysadoux.supabase.co/storage/v1/object/public/archivos/catalogo/productos-app.json';
+
+  async function traerCatalogo() {
+    if (!confirm('Trae el catálogo de Ayünka (36 productos con foto y datos reales).\n\nActualiza los que ya tienes y agrega los que falten. No borra nada ni pisa los precios que hayas escrito tú.')) return;
+    try {
+      const r = await fetch(URL_CATALOGO + '?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const cat = await r.json();
+      const DB = window.DB;
+      DB.products = DB.products || [];
+      let nuevos = 0, tocados = 0;
+      for (const c of (cat.productos || [])) {
+        let p = DB.products.find(x => x.sku === c.sku)
+             || DB.products.find(x => (x.name || '').toLowerCase() === (c.name || '').toLowerCase());
+        if (!p) {
+          p = { id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7) };
+          DB.products.push(p); nuevos++;
+        } else tocados++;
+        // se copia lo del catálogo, pero sin pisar lo que él haya puesto a mano
+        p.sku = c.sku; p.name = p.name || c.name; p.linea = c.linea;
+        p.material = p.material || c.material; p.colors = p.colors || c.colors;
+        p.postMin = p.postMin != null ? p.postMin : c.postMin;
+        if (!p.grams && c.grams) p.grams = c.grams;
+        if (!p.timeH && c.timeH) p.timeH = c.timeH;
+        if (p.price == null && c.price != null) p.price = c.price;
+        if (!p.extraCosto && c.extraCosto) { p.extraCosto = c.extraCosto; p.extraNota = c.extraNota; }
+        if (!p.imageUrl && !p.imageId && c.imageUrl) p.imageUrl = c.imageUrl;
+        if (!p.igId && c.igId) p.igId = c.igId;
+        if (c.origenArchivo) { p.origenArchivo = c.origenArchivo; p.origenGcode = c.origenGcode; }
+        if (c.carpetaFotos) p.carpetaFotos = c.carpetaFotos;
+        p.files = p.files || [];
+        p.stock = p.stock || 0;
+        p.packOverride = p.packOverride != null ? p.packOverride : null;
+        p.filamentId = p.filamentId || null;
+      }
+      window.saveDB();
+      aviso(nuevos + ' productos nuevos · ' + tocados + ' actualizados');
+      if (window.__render) window.__render();
+    } catch (e) {
+      alert('No se pudo traer el catálogo: ' + (e.message || e));
+    }
+  }
+
+  window.IMPRESIONES = { traerCatalogo, view, init: () => { pinta(); if (!cache) recargar(); }, recargar, aprobar, descartar, reponer, filtrar };
 })();

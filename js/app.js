@@ -109,6 +109,7 @@
 
     return `<div class="row between"><h1 class="page">Productos</h1>
       <div class="row">${window.AYUNKA_DESIGNS?`<button class="btn ghost sm" onclick="A.addDesigns()">+ Diseños Ayünka</button>`:''}
+        <button class="btn ghost sm" onclick="IMPRESIONES.traerCatalogo()">Traer catálogo</button>
         <button class="btn ghost sm" onclick="A.delProductsNoFile()">Limpiar sin archivo</button>
         <button class="btn primary" onclick="A.editProduct()">+ Nuevo</button></div></div>
       <p class="sub">Costo de producción y precio sugerido por pieza</p>
