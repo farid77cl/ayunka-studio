@@ -19,6 +19,8 @@
   const D={}; let tipo='posts', filtro='todos', sucio=false;
   const esc = s => (s||'').toString().replace(/</g,'&lt;');
   const fecha = s => s ? new Date(s).toLocaleString('es-CL',{dateStyle:'medium',timeStyle:'short'}) : '—';
+  // ddmmaa para las fechas ya formateadas que vienen como 2026-08-04
+  const ddmmaa = f => { const m=String(f||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3]+m[2]+m[1].slice(2) : (f||''); };
 
   function cfg(){
     try{ const c=JSON.parse(localStorage.getItem('ayunka-supa-cfg')); if(c&&c.url&&c.key) return c; }catch(e){}
@@ -207,7 +209,7 @@
         ${(m.top_posts||[]).map((p,i)=>`
           <div class="card"><div class="row between">
             <span><b>${i+1}.</b> ${esc(p.texto)}<br>
-              <span class="muted">${p.fecha} · ${esc(p.tipo)} · <a href="${p.link}" target="_blank">ver ↗</a></span></span>
+              <span class="muted">${ddmmaa(p.fecha)} · ${esc(p.tipo)} · <a href="${p.link}" target="_blank">ver ↗</a></span></span>
             <span style="text-align:right"><b style="font-size:18px">${p.interacciones}</b><br>
               <span class="muted">❤️ ${p.likes} · 💬 ${p.comentarios}</span></span>
           </div></div>`).join('') || '<div class="card empty">Sin datos.</div>'}`;
@@ -221,7 +223,7 @@
         ${(c.alertas||[]).map(a=>`
           <div class="card"><div class="row between">
             <span>«${esc(a.comentario)}»<br>
-              <span class="muted">@${esc(a.usuario)} · ${esc(a.fecha)} · <a href="${a.post}" target="_blank">ver post ↗</a></span></span>
+              <span class="muted">@${esc(a.usuario)} · ${esc(ddmmaa(a.fecha))} · <a href="${a.post}" target="_blank">ver post ↗</a></span></span>
             <span class="pill warn">${esc(a.palabra_clave)}</span>
           </div></div>`).join('') || '<div class="card empty">Sin consultas nuevas 🎉</div>'}`;
     }
@@ -236,7 +238,7 @@
         <div class="sectiontitle">Conversaciones pendientes</div>
         ${(g.conversaciones||[]).map(v=>`
           <div class="card"><div class="row between">
-            <span>«${esc(v.ultimo_mensaje)}»<br><span class="muted">${esc(v.de)} · ${esc(v.fecha)}</span></span>
+            <span>«${esc(v.ultimo_mensaje)}»<br><span class="muted">${esc(v.de)} · ${esc(ddmmaa(v.fecha))}</span></span>
             <span class="pill ${v.sin_leer?'bad':'ok'}">${v.sin_leer||0} sin leer</span>
           </div></div>`).join('') || '<div class="card empty">Todo respondido 🎉</div>'}`;
     }

@@ -12,7 +12,15 @@
   function aviso(t) { try { if (window.A && window.A._toast) return window.A._toast(t); } catch (e) {} console.log(t); }
 
   function decisiones() { window.DB.bandeja = window.DB.bandeja || {}; return window.DB.bandeja; }
-  function estadoDe(a) { return decisiones()[a] || 'pendiente'; }
+  function productoDe(a) { return (window.DB.products || []).find(p => p.origenArchivo === a) || null; }
+  function estadoDe(a) {
+    const d = decisiones()[a];
+    if (d) return d;
+    // Si ya hay un producto que salió de este archivo, está aprobado — aunque haya
+    // entrado por «Traer catálogo» y no por el botón Aprobar. Sin esto, aparecían
+    // en «pendientes» cosas que ya tenían su ficha hecha.
+    return productoDe(a) ? 'aprobado' : 'pendiente';
+  }
 
   function view() {
     return `<div class="row between" style="align-items:center">
@@ -39,7 +47,7 @@
 
     cont.innerHTML = items.map(i => {
       const est = estadoDe(i.archivo);
-      const ya = (window.DB.products || []).find(p => p.origenArchivo === i.archivo);
+      const ya = productoDe(i.archivo);
       return `<div class="card" style="margin-bottom:8px">
         <div class="row between" style="align-items:flex-start;gap:8px">
           <div style="flex:1;min-width:0">
@@ -51,7 +59,10 @@
             </div>
             ${i.carpeta_producto ? `<div class="muted" style="font-size:12px">fotos en <code>rrss/productos/${esc(i.carpeta_producto)}/</code></div>` : ''}
             <div style="font-size:12px;margin-top:4px">
-              <a href="${esc(i.gcode_url)}" target="_blank" rel="noopener">bajar el archivo para reimprimir</a>
+              ${i.archivo_nube
+                ? `<a href="${esc(i.archivo_nube)}" target="_blank" rel="noopener">bajar el archivo para reimprimir</a>`
+                : `<a href="${esc(urlImpresora(i))}" target="_blank" rel="noopener" onclick="return IMPRESIONES.avisoDescarga()">bajar de la impresora</a>
+                   <span class="muted">(solo en la red de la K2)</span>`}
               ${i.timelapse_url ? ` · <a href="${esc(i.timelapse_url)}" target="_blank" rel="noopener">timelapse</a>` : ''}
             </div>
           </div>
@@ -80,6 +91,24 @@
     } catch (e) {
       if (cont) cont.innerHTML = `<div class="card">No se pudo traer la bandeja.<div class="muted" style="font-size:12px;margin-top:4px">${esc(e.message || e)}. La genera n8n con el historial de la impresora; si nunca se ha corrido, todavía no existe.</div></div>`;
     }
+  }
+
+  // El nombre del archivo trae espacios y acentos: sin codificar, el enlace se rompe.
+  function urlImpresora(i) {
+    if (i.archivo_nube) return i.archivo_nube;
+    const base = 'http://192.168.100.90:4408/server/files/gcodes/';
+    return base + String(i.archivo).split('/').map(encodeURIComponent).join('/');
+  }
+
+  // Dos motivos por los que la descarga puede fallar, y conviene decirlos antes:
+  //  1. no estar en la red de la impresora
+  //  2. Chrome bloquea descargas por http cuando la página va por https
+  function avisoDescarga() {
+    return confirm('El archivo vive en la impresora (192.168.100.90).\n\n' +
+      'Para bajarlo necesitas:\n' +
+      '· estar en la misma red que la K2\n' +
+      '· y que Chrome no bloquee la descarga (la app va por https y la impresora por http; si no pasa nada, abre el enlace desde la propia página de la impresora)\n\n' +
+      '¿Intentamos igual?');
   }
 
   function item(a) { return (cache && (cache.items || []).find(i => i.archivo === a)) || null; }
@@ -151,5 +180,5 @@
     }
   }
 
-  window.IMPRESIONES = { traerCatalogo, view, init: () => { pinta(); if (!cache) recargar(); }, recargar, aprobar, descartar, reponer, filtrar };
+  window.IMPRESIONES = { traerCatalogo, avisoDescarga, urlImpresora, view, init: () => { pinta(); if (!cache) recargar(); }, recargar, aprobar, descartar, reponer, filtrar };
 })();

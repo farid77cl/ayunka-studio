@@ -14,6 +14,11 @@
   const VACIAS = new Set(['de','la','el','los','las','con','para','por','y','en','un','una',
                           'del','al','mini','cajita','caja','set','kit','pack']);
 
+  // Las publicaciones traen la fecha como 2026-08-04. Farid la quiere ddmmaa.
+  function ddmmaa(f){
+    const m=String(f||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? m[3]+m[2]+m[1].slice(2) : (f||'');
+  }
   function cargar(){
     if(PUBS) return Promise.resolve(PUBS);
     if(cargando) return cargando;
@@ -75,7 +80,7 @@
         <span class="muted">Todavía no hay lista. n8n la genera cada mañana a las 07:30.</span></label>`;
     }
     const opts = lista.map(p=>{
-      const et = `${p.fecha} · ${p.titulo || '(sin título)'} · ${p.interacciones} interac.`;
+      const et = `${ddmmaa(p.fecha)} · ${p.titulo || '(sin título)'} · ${p.interacciones} interac.`;
       return `<option value="${p.id}" ${prod.igId===p.id?'selected':''}>${esc(et)}</option>`;
     }).join('');
     const act = prod.igId ? buscar(prod.igId) : null;
