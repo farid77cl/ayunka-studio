@@ -63,7 +63,7 @@
     try{localStorage.setItem(KEY,JSON.stringify(s));}catch(e){}
   }
   function loadPrecios(){ try{return JSON.parse(localStorage.getItem(KEYP)||'[]');}catch(e){return [];} }
-  function savePrecios(a){ try{localStorage.setItem(KEYP,JSON.stringify(a));}catch(e){} }
+  function savePrecios(a){ try{localStorage.setItem(KEYP,JSON.stringify(a));}catch(e){ console.warn('No se pudo guardar en el navegador (¿sin espacio?)',e); } }
 
   const SUG=['Tela exterior','Tela panal','Gamuza','Forro','Cinta espiga','Cinta twill','Cinta de raso','Cinta bebé','Elástico','Cierre / cremallera','Velcro','Botón','Broche / snap','Sesgo (bies)','Encaje','Cordón','Guata / vellón','Relleno','Entretela','Entretela fusionable','Hilo','Hilo encerado','Borla','Pompón','Moño','Argolla / anilla','Mosquetón','Ojetillos','Imán','Etiqueta bordada','Etiqueta de marca'];
   const QUICK=['Cinta espiga','Elástico','Cierre / cremallera','Velcro','Botón','Sesgo (bies)','Guata / vellón','Cordón','Argolla / anilla','Borla','Moño','Etiqueta bordada'];
@@ -560,7 +560,7 @@
       const s=document.getElementById(map[k]); if(s) s.style.display=(k===which?'':'none');
       const b=document.getElementById('cc_tab'+k); if(b) b.className='btn '+(k===which?'primary':'ghost');
     });
-    try{ localStorage.setItem('ayunka-costos-tab',which); }catch(e){}
+    try{ localStorage.setItem('ayunka-costos-tab',which); }catch(e){ console.warn('No se pudo guardar en el navegador (¿sin espacio?)',e); }
   }
   const tabActual = ()=>{ try{ return localStorage.getItem('ayunka-costos-tab')||'B'; }catch(e){ return 'B'; } };
 

@@ -8,7 +8,7 @@
   const KEY='ayunka-wsp-cfg';
   const DEF={ plazo:'', envio:'', retiro:'' };
   const load=()=>{ try{ return Object.assign({},DEF,JSON.parse(localStorage.getItem(KEY)||'{}')); }catch(e){ return Object.assign({},DEF); } };
-  const save=c=>{ try{ localStorage.setItem(KEY,JSON.stringify(c)); }catch(e){} };
+  const save=c=>{ try{ localStorage.setItem(KEY,JSON.stringify(c)); }catch(e){ console.warn('No se pudo guardar en el navegador (¿sin espacio?)',e); } };
   const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   /* Los dos automáticos topan en 200 caracteres: el campo de WhatsApp los corta.

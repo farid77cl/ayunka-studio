@@ -157,7 +157,7 @@
     const c=cfg();
     const url=c.url+'/storage/v1/object/public/'+(c.bucket||'archivos')+'/cola/posts-aprobados.json';
     let cola=[];
-    try{ const r=await fetch(url+'?v='+Date.now()); if(r.ok) cola=await r.json(); }catch(e){}
+    try{ const r=await fetch(url+'?v='+Date.now()); if(r.ok) cola=await r.json(); else console.warn('Cola: HTTP '+r.status); }catch(e){ console.warn('No se pudo leer la cola',e); }
     if(!Array.isArray(cola)) cola=[];
     const max=cola.reduce((m,p)=>Math.max(m,p.orden||0),0);
     items.forEach((it,i)=> cola.push(Object.assign({orden:max+i+1},it)));
@@ -228,7 +228,7 @@
     },
     async pick(inp){
       for(const file of inp.files){
-        try{ const img=await leer(file); D.fotos.push({img,url:img.src,nombre:file.name}); }catch(e){}
+        try{ const img=await leer(file); D.fotos.push({img,url:img.src,nombre:file.name}); }catch(e){ console.warn('Foto rechazada',file&&file.name,e); if(window.A&&window.A._toast) window.A._toast('No se pudo leer '+((file&&file.name)||'la foto')); }
       }
       inp.value=''; pintar();
       estado(D.fotos.length+' foto(s) lista(s).');

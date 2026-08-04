@@ -26,7 +26,7 @@
       .then(r=>r.ok?r.json():null)
       .then(d=>{
         PUBS = (d && d.publicaciones) || [];
-        try{ localStorage.setItem(CACHE, JSON.stringify(PUBS)); }catch(e){}
+        try{ localStorage.setItem(CACHE, JSON.stringify(PUBS)); }catch(e){ console.warn('No se pudo guardar en el navegador (¿sin espacio?)',e); }
         return PUBS;
       })
       .catch(()=>{

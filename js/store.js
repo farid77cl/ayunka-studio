@@ -86,12 +86,27 @@
   window.uid = uid;
   const BKEY='ayunka-studio-backups';
   function loadBackups(){ try{return JSON.parse(localStorage.getItem(BKEY))||[];}catch(e){return [];} }
+  // Los respaldos son copias COMPLETAS de la base. Con el catálogo cargado cada una
+  // pesa cientos de KB, y el navegador da ~5 MB en total. Antes se guardaban 12 sin
+  // mirar el tamaño y podían dejar sin espacio a la base de verdad, que es lo que
+  // importa. Ahora: máximo 6, y además un techo de bytes — se van botando las más
+  // viejas hasta caber.
+  const MAX_RESP = 6;
+  const TECHO_BYTES = 1500000; // ~1,5 MB de los ~5 MB disponibles
   function snapshot(reason){
     try{ const arr=loadBackups(); const last=arr[arr.length-1];
       if(reason!=='antes de restaurar' && last && (Date.now()-last.t)<60000) return;
       arr.push({t:Date.now(),reason:reason||'auto',db:JSON.parse(JSON.stringify(DB))});
-      while(arr.length>12) arr.shift();
-      localStorage.setItem(BKEY,JSON.stringify(arr));
+      while(arr.length>MAX_RESP) arr.shift();
+      let txt=JSON.stringify(arr);
+      while(arr.length>1 && txt.length>TECHO_BYTES){ arr.shift(); txt=JSON.stringify(arr); }
+      try{ localStorage.setItem(BKEY,txt); }
+      catch(e){
+        // Si aun así no cabe, se deja solo el último. Perder respaldos viejos es
+        // molesto; perder la base por falta de espacio es mucho peor.
+        try{ localStorage.setItem(BKEY,JSON.stringify(arr.slice(-1))); }
+        catch(e2){ try{ localStorage.removeItem(BKEY); }catch(e3){} }
+      }
     }catch(e){}
   }
   window.snapshotDB=snapshot;

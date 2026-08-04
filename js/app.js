@@ -5,13 +5,17 @@
   const pct=x=>(Math.round((x||0)*1000)/10)+'%';
   const num=v=>{const n=parseFloat(v);return isNaN(n)?0:n;};
   const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  // esc() sirve para TEXTO. Cuando el dato va dentro de un onclick="f('…')" hay que
+  // escaparlo para JavaScript: el navegador decodifica las entidades HTML ANTES de
+  // que el JS se interprete, así que &#39; vuelve a ser ' y rompe igual. Un archivo
+  // llamado «L'Atelier.stl» dejaba el botón muerto.
+  const escJs=s=>String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'\\x3C');
   const MATERIALS=['PLA','PLA+','PLA Silk','PLA Mate','PETG','ABS','ASA','TPU','Nylon','PC','PVA','HIPS','Madera (PLA)','Fibra de carbono'];
   function matOptions(sel){return MATERIALS.map(m=>`<option ${m===sel?'selected':''}>${m}</option>`).join('');}
   function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1900);}
   function hydrate(){document.querySelectorAll('img[data-img-id]:not([data-done])').forEach(async img=>{img.setAttribute('data-done','1');try{const url=await IDB.urlFor(img.getAttribute('data-img-id'));if(url)img.src=url;}catch(e){}});}
   function modal(html){$('#modal-root').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)A.closeModal()"><div class="modal">${html}</div></div>`;hydrate();}
   function closeModal(){$('#modal-root').innerHTML='';}
-  function fileToBlobStore(file,kind){return IDB.putFile(file,{name:file.name,type:file.type,kind});}
 
   const AREAS=[
     {id:'inicio', label:'Inicio', tabs:[{id:'inicio',label:'Inicio'}]},
@@ -37,7 +41,10 @@
   /* ---------- INICIO ---------- */
   function vInicio(){
     const prods=DB.products,fils=DB.filaments;
-    const margins=prods.map(p=>calc.marginPct(calc.priceOf(p),calc.costPiece(p).total));
+    // Solo entran los que tienen datos de verdad. Con el catálogo cargado hay decenas de
+    // productos sin gramos ni horas todavía, y promediarlos daba un margen inventado.
+    const conDatos=prods.filter(p=>(+p.grams>0||+p.timeH>0)&&calc.priceOf(p)>0);
+    const margins=conDatos.map(p=>calc.marginPct(calc.priceOf(p),calc.costPiece(p).total));
     const avgM=margins.length?margins.reduce((a,b)=>a+b,0)/margins.length:0;
     const totalG=fils.reduce((a,f)=>a+(+f.gramsLeft||0),0);
     const low=fils.filter(f=>(+f.gramsLeft||0)<150);
@@ -84,8 +91,9 @@
         <h3>${esc(p.name)}</h3>
         <p class="muted">${det}</p>
         <div class="row between" style="margin-top:8px">
-          <b>${fmt(price)}</b>
-          <span class="pill ${salud}" title="Margen">${pct(m)}</span>
+          ${(!(+p.grams>0||+p.timeH>0) && p.price==null)
+            ? `<span class="muted" style="font-size:12px">falta cotizar</span>`
+            : `<b>${fmt(price)}</b><span class="pill ${salud}" title="Margen">${pct(m)}</span>`}
         </div>
         ${window.IG?IG.chip(p):''}
       </div>
@@ -129,8 +137,8 @@
     const files=(p.files||[]).map(f=>{const k=f.id||f.url;
       // Los que todavía tienen id son de la época en que se guardaban en el dispositivo.
       // Se marcan para que se vea qué falta migrar; el botón «Subir a la nube» los arregla.
-      const v=f.url?`A.viewUrl('${f.url}','${esc(f.name)}')`:`A.viewFile('${f.id}','${esc(f.name)}')`;
-      return `<div class="row between" style="margin:3px 0"><span>📄 ${esc(f.name)}${f.url?'':' <span class="tag warn">sin subir</span>'}</span><span class="row"><button class="btn ghost sm" onclick="${v}">Ver</button><button class="linkish" onclick="A.prodDelFile('${esc(k)}')">quitar</button></span></div>`;}).join('');
+      const v=f.url?`A.viewUrl('${escJs(f.url)}','${escJs(f.name)}')`:`A.viewFile('${escJs(f.id)}','${escJs(f.name)}')`;
+      return `<div class="row between" style="margin:3px 0"><span>📄 ${esc(f.name)}${f.url?'':' <span class="tag warn">sin subir</span>'}</span><span class="row"><button class="btn ghost sm" onclick="${v}">Ver</button><button class="linkish" onclick="A.prodDelFile('${escJs(k)}')">quitar</button></span></div>`;}).join('');
     modal(`<h2>${p.id?'Editar':'Nuevo'} producto</h2>
       <div class="row" style="gap:14px;align-items:flex-start">${img}
         <div style="flex:1"><label class="field">Nombre<input id="f-name" value="${esc(p.name)}" oninput="A._prod.name=this.value"></label>
@@ -189,12 +197,25 @@
     renderProductModal(); toast('Archivo(s) subido(s)'); }
   function prodOpenFile(fid){IDB.openFile(fid).then(ok=>{if(!ok)toast('Archivo no encontrado');});}
   function viewUrl(url,name){ window.STLViewer.openUrl(url,name); }
-  async function viewFile(fid,name){ try{ const f=await IDB.getFile(fid); if(!f){toast('Archivo local: se subió en otro dispositivo. Para verlo en todos lados, usa el catálogo «+ Diseños Ayünka».');return;} window.STLViewer.open(f.blob,name||f.name); }catch(e){ toast('No se pudo abrir el visor'); } }
+  // Solo para archivos viejos que quedaron guardados en el dispositivo. Los nuevos
+  // van todos a Supabase y se abren con viewUrl.
+  async function viewFile(fid,name){ try{ const f=await IDB.getFile(fid); if(!f){toast('Este archivo se subió desde otro dispositivo. Ábrelo allá y aprieta «Subir a la nube» para tenerlo en todos lados.');return;} window.STLViewer.open(f.blob,name||f.name); }catch(e){ toast('No se pudo abrir el visor'); } }
   async function prodDelImg(){const p=A._prod;if(!p.imageUrl&&!p.imageId)return;if(!confirm('¿Quitar la foto de este producto?'))return;try{if(p.imageId){await IDB.delFile(p.imageId);}if(p.imageUrl&&window.Supa&&window.Supa.configured()&&/supabase\.co/.test(p.imageUrl)&&!/\/catalogo\//.test(p.imageUrl)){window.Supa.removeUrl(p.imageUrl).catch(()=>{});}}catch(e){}p.imageUrl=null;p.imageId=null;renderProductModal();toast('Foto quitada');}
   async function prodDelFile(key){const f=(A._prod.files||[]).find(x=>(x.id||x.url)===key);if(f&&f.id)await IDB.delFile(f.id);if(f&&f.url&&window.Supa&&window.Supa.configured()&&/supabase\.co/.test(f.url)&&!/\/catalogo\//.test(f.url)){window.Supa.removeUrl(f.url).catch(()=>{});}A._prod.files=A._prod.files.filter(x=>(x.id||x.url)!==key);renderProductModal();}
   function saveProduct(){const p=A._prod;p.name=( $('#f-name').value||'Pieza').trim();p.grams=num(p.grams);p.timeH=num(p.timeH);p.colors=num(p.colors)||1;p.postMin=num(p.postMin);
     if(p.id){Object.assign(DB.products.find(x=>x.id===p.id),p);}else{p.id=window.uid();p.stock=0;DB.products.push(p);}save();closeModal();render();toast('Producto guardado');}
-  function delProduct(id){DB.products=DB.products.filter(x=>x.id!==id);save();closeModal();render();toast('Producto eliminado');}
+  async function delProduct(id){
+    const p=DB.products.find(x=>x.id===id);
+    // Antes el producto se borraba y su foto y sus STL quedaban ocupando espacio en
+    // Supabase para siempre. Se limpian, salvo los del catálogo compartido (/catalogo/),
+    // que los usan otros productos.
+    if(p&&window.Supa&&window.Supa.configured()){
+      const urls=[p.imageUrl,...(p.files||[]).map(f=>f.url)].filter(u=>u&&/supabase\.co/.test(u)&&!/\/catalogo\//.test(u));
+      for(const u of urls){ try{ await window.Supa.removeUrl(u); }catch(e){ console.warn('No se pudo borrar de Supabase',u,e); } }
+      if(p.imageId){ try{ await IDB.delFile(p.imageId); }catch(e){} }
+      for(const f of (p.files||[])) if(f.id){ try{ await IDB.delFile(f.id); }catch(e){} }
+    }
+    DB.products=DB.products.filter(x=>x.id!==id);save();closeModal();render();toast('Producto eliminado');}
 
   const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
   function lookupFilHex(marca,color){
@@ -449,7 +470,7 @@
     const jobs=d.jobs.map((j,i)=>{
       const pr=j.productId?DB.products.find(x=>x.id===j.productId):null;
       const fil=pr&&pr.filamentId?DB.filaments.find(f=>f.id===pr.filamentId):null;
-      const files=pr&&pr.files&&pr.files.length?pr.files.map(f=>`<button class="btn ghost sm" onclick="${f.url?`A.viewUrl('${f.url}','${esc(f.name)}')`:`A.viewFile('${f.id}','${esc(f.name)}')`}">📄 Ver ${esc(f.name)}</button>`).join(' '):'';
+      const files=pr&&pr.files&&pr.files.length?pr.files.map(f=>`<button class="btn ghost sm" onclick="${f.url?`A.viewUrl('${escJs(f.url)}','${escJs(f.name)}')`:`A.viewFile('${escJs(f.id)}','${escJs(f.name)}')`}">📄 Ver ${esc(f.name)}</button>`).join(' '):'';
       return `<div class="card" style="margin-bottom:10px">
         <div class="row" style="gap:8px"><input value="${esc(j.name)}" style="flex:1" oninput="A._day.jobs[${i}].name=this.value"><input type="number" step="0.1" value="${j.hours}" style="width:64px" oninput="A._day.jobs[${i}].hours=+this.value;A.dayHours()" title="horas"><button class="pill ${j.status==='listo'?'ok':j.status==='imprimiendo'?'warn':'bad'}" style="border:none;cursor:pointer" onclick="A.dayJobStatus(${i})">${j.status}</button></div>
         <textarea placeholder="¿Qué hacer? color, unidades, ajustes de laminado…" style="margin-top:8px;min-height:46px" oninput="A._day.jobs[${i}].desc=this.value">${esc(j.desc||'')}</textarea>
@@ -702,7 +723,18 @@
     i.click();
   }
   function dataURLtoBlob(durl){const i=durl.indexOf(',');const head=durl.slice(0,i),b=durl.slice(i+1);const mime=(head.match(/:(.*?);/)||[])[1]||'application/octet-stream';const bin=atob(b);const u=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);return new Blob([u],{type:mime});}
-  function delProductsNoFile(){ const sinf=DB.products.filter(p=>!(p.files&&p.files.length)); if(!sinf.length){toast("Todos los productos tienen archivo");return;} if(confirm("¿Eliminar "+sinf.length+" producto(s) sin ningún STL/3MF asociado?")){ DB.products=DB.products.filter(p=>p.files&&p.files.length); save(); render(); toast(sinf.length+" producto(s) eliminados"); } }
+  function delProductsNoFile(){
+    // Ojo: los productos de la línea textil (bordado, costura) NUNCA van a tener un STL,
+    // y los del catálogo tampoco lo traen. Antes este botón se los llevaba a todos por
+    // delante. Ahora solo mira la línea 3D y avisa qué se va a borrar.
+    const cand=DB.products.filter(p=>(p.linea||'3D')==='3D' && !(p.files&&p.files.length));
+    const protegidos=DB.products.length-cand.length;
+    if(!cand.length){toast("No hay productos 3D sin archivo");return;}
+    const lista=cand.slice(0,12).map(p=>'· '+(p.name||'(sin nombre)')).join('\n')+(cand.length>12?'\n· …y '+(cand.length-12)+' más':'');
+    if(confirm("Se van a eliminar "+cand.length+" producto(s) de la línea 3D que no tienen ningún STL/3MF:\n\n"+lista+"\n\nNo se tocan los "+protegidos+" restantes (línea textil y los que sí tienen archivo).\n\n¿Seguro?")){
+      const ids=new Set(cand.map(p=>p.id));
+      DB.products=DB.products.filter(p=>!ids.has(p.id)); save(); render(); toast(cand.length+" producto(s) eliminados");
+    } }
   function mergeDesign(prod,d){
     let changed=false;
     if(d.files&&d.files.length){
@@ -737,7 +769,7 @@
 
   /* ---------- ROUTER ---------- */
   const VIEWS={inicio:vInicio,productos:vProductos,impresiones:()=>(window.IMPRESIONES?IMPRESIONES.view():'<div class="card">Cargando…</div>'),placas:vPlacas,filamentos:vFilamentos,clientes:vClientes,cotizaciones:vCotiz,costos:()=>(window.CalcCostos?CalcCostos.view():'<div class="card">Cargando…</div>'),nuevo:()=>(window.NUEVO?NUEVO.view():'<div class="card">Cargando…</div>'),aprobar:()=>(window.RRSS?RRSS.viewAprobar():'<div class="card">Cargando…</div>'),reportes:()=>(window.RRSS?RRSS.viewReportes():'<div class="card">Cargando…</div>'),whatsapp:()=>(window.WSP?WSP.view():'<div class="card">Cargando…</div>'),pedidos:vPedidos,finanzas:vFinanzas,plan:vPlan,ajustes:vAjustes};
-  function render(){let id=(location.hash.replace('#/','')||'inicio');if(!VIEWS[id])id='inicio';renderTabs(id);$('#view').innerHTML=VIEWS[id]();hydrate();if(id==='costos'&&window.CalcCostos){try{CalcCostos.init();}catch(e){}}if(id==='productos'&&window.IG&&!A._igListo){A._igListo=true;IG.cargar().then(()=>{if((location.hash.replace('#/','')||'inicio')==='productos')render();});}if(id==='impresiones'&&window.IMPRESIONES){try{IMPRESIONES.init();}catch(e){}}if(id==='nuevo'&&window.NUEVO){try{NUEVO.init();}catch(e){}}if(id==='aprobar'&&window.RRSS){try{RRSS.initAprobar();}catch(e){}}if(id==='reportes'&&window.RRSS){try{RRSS.initReportes();}catch(e){}}window.scrollTo(0,0);}
+  function render(){let id=(location.hash.replace('#/','')||'inicio');if(!VIEWS[id])id='inicio';renderTabs(id);$('#view').innerHTML=VIEWS[id]();hydrate();if(id==='costos'&&window.CalcCostos){try{CalcCostos.init();}catch(e){console.error('Costos no pudo iniciar',e);toast('La pestaña Costos falló al abrir');}}if(id==='productos'&&window.IG&&!A._igListo){A._igListo=true;IG.cargar().then(()=>{if((location.hash.replace('#/','')||'inicio')==='productos')render();});}if(id==='impresiones'&&window.IMPRESIONES){try{IMPRESIONES.init();}catch(e){console.error('Impresiones no pudo iniciar',e);toast('La pestaña Impresiones falló al abrir');}}if(id==='nuevo'&&window.NUEVO){try{NUEVO.init();}catch(e){}}if(id==='aprobar'&&window.RRSS){try{RRSS.initAprobar();}catch(e){console.error('Aprobar no pudo iniciar',e);toast('La pestaña Aprobar falló al abrir');}}if(id==='reportes'&&window.RRSS){try{RRSS.initReportes();}catch(e){console.error('Reportes no pudo iniciar',e);toast('La pestaña Reportes falló al abrir');}}window.scrollTo(0,0);}
   window.addEventListener('hashchange',render);
   $('#menuBtn').addEventListener('click',()=>$('#tabs').classList.toggle('open'));
 
