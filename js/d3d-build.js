@@ -26,7 +26,7 @@
     return Object.assign({
       id: uid(), tipo: 'texto', nombre: txt || 'Texto', visible: true, color: 2,
       txt: txt || 'Texto', fuente: 'poppins', mm: 10, align: 'centro', espaciado: 0, interlinea: 1.25,
-      x: 0, y: 0, rot: 0, altura: 1.2, calado: false
+      x: 0, y: 0, rot: 0, escalaX: 1, escalaY: 1, altura: 1.2, calado: false
     }, extra || {});
   }
   function capaFigura(fig, extra) {
@@ -137,7 +137,13 @@
       figs = G.encajar(capa.figs, +capa.ancho || 30, +capa.alto || 30);
     }
     if (!figs.length) return [];
-    return G.transformar(figs, { x: +capa.x || 0, y: +capa.y || 0, rot: +capa.rot || 0 });
+    // escalaX/escalaY dejan estirar el texto sin tocar su tamaño nominal (letras
+    // condensadas o altas). En figuras e imágenes el estirado va por ancho/alto.
+    return G.transformar(figs, {
+      x: +capa.x || 0, y: +capa.y || 0, rot: +capa.rot || 0,
+      sx: capa.escalaX != null ? (+capa.escalaX || 1) : 1,
+      sy: capa.escalaY != null ? (+capa.escalaY || 1) : 1
+    });
   }
 
   async function figsDeBase(p) {

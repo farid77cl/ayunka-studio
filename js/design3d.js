@@ -59,10 +59,40 @@
     return figs;
   }
 
-  /* ---------- lienzo 2D ---------- */
-  let vp = { s: 1, cx: 0, cy: 0 };
+  /* ---------- lienzo 2D ----------
+     El encuadre NO se recalcula en cada dibujo a propósito: si dependiera del
+     contenido, arrastrar una pieza hacia afuera reescalaría toda la vista y se
+     sentiría como que el diseño «huye» del dedo. Se encuadra al abrir, al cambiar
+     de plantilla y cuando se pide «Centrar»; el resto del tiempo manda el usuario
+     con la rueda y arrastrando el fondo.                                          */
+  let vp = { s: 0, cx: 0, cy: 0 };
   const m2p = (x, y) => [vp.cx + x * vp.s, vp.cy - y * vp.s];
   const p2m = (px, py) => [(px - vp.cx) / vp.s, (vp.cy - py) / vp.s];
+
+  const rad = g => (+g || 0) * Math.PI / 180;
+  function rotar(x, y, r) { const c = Math.cos(r), s = Math.sin(r); return [x * c - y * s, x * s + y * c]; }
+
+  // Caja de la capa en SU propio sistema (sin girar ni trasladar), ya con el
+  // estirado aplicado. De aquí salen los tiradores, que por eso giran con la pieza.
+  function cajaLocal(c, figs) {
+    if (!figs || !figs.length) return null;
+    const b = G().bboxDe(figs);
+    const sx = num(c.escalaX, 1) || 1, sy = num(c.escalaY, 1) || 1;
+    return { x1: b.x1 * sx, y1: b.y1 * sy, x2: b.x2 * sx, y2: b.y2 * sy, w: b.w * sx, h: b.h * sy };
+  }
+  const DIRS = { nw: [-1, 1], n: [0, 1], ne: [1, 1], w: [-1, 0], e: [1, 0], sw: [-1, -1], s: [0, -1], se: [1, -1] };
+  // Punto de un tirador en milímetros globales.
+  function puntoHandle(c, bl, dir) {
+    const [ux, uy] = DIRS[dir];
+    const lx = ux * bl.w / 2, ly = uy * bl.h / 2;
+    const [rx, ry] = rotar(lx, ly, rad(c.rot));
+    return [rx + num(c.x, 0), ry + num(c.y, 0)];
+  }
+  function puntoGiro(c, bl) {
+    const d = bl.h / 2 + 26 / (vp.s || 1);   // 26 px por encima del borde
+    const [rx, ry] = rotar(0, d, rad(c.rot));
+    return [rx + num(c.x, 0), ry + num(c.y, 0)];
+  }
 
   function trazar(ctx, figs) {
     ctx.beginPath();
@@ -77,7 +107,7 @@
     }
   }
 
-  async function dibujar() {
+  async function dibujar(reencuadrar) {
     const cv = $('#d3d-2d'); if (!cv || !P) return;
     const cont = cv.parentElement;
     const W = Math.max(240, cont.clientWidth), H = num(cv.dataset.h, 420);
@@ -95,15 +125,16 @@
     const bf = await figsBase();
     const capas = (P.capas || []).filter(c => c.visible !== false);
     const resueltas = [];
-    for (const c of capas) resueltas.push({ c, figs: figsPuestas(c, await figsDe(c)) });
+    for (const c of capas) resueltas.push({ c, base: await figsDe(c), figs: figsPuestas(c, await figsDe(c)) });
 
-    // encuadre
     const todo = bf.concat(resueltas.reduce((a, r) => a.concat(r.figs), []));
     const bb = todo.length ? G().bboxDe(todo) : { x1: -30, y1: -20, x2: 30, y2: 20, w: 60, h: 40 };
-    const mw = Math.max(bb.w, 10), mh = Math.max(bb.h, 10);
-    vp.s = Math.min((W - 40) / mw, (H - 40) / mh);
-    vp.cx = W / 2 - ((bb.x1 + bb.x2) / 2) * vp.s;
-    vp.cy = H / 2 + ((bb.y1 + bb.y2) / 2) * vp.s;
+    if (reencuadrar || !vp.s) {
+      const mw = Math.max(bb.w, 10), mh = Math.max(bb.h, 10);
+      vp.s = Math.min((W - 40) / mw, (H - 40) / mh);
+      vp.cx = W / 2 - ((bb.x1 + bb.x2) / 2) * vp.s;
+      vp.cy = H / 2 + ((bb.y1 + bb.y2) / 2) * vp.s;
+    }
 
     // base
     if (bf.length) {
@@ -124,23 +155,42 @@
              ctx.strokeStyle = 'rgba(47,58,64,.25)'; ctx.lineWidth = .8; ctx.stroke(); }
       ctx.restore();
     }
-    // selección
+    // selección: la caja y los tiradores van girados como la pieza
     const cs = capaSel();
+    cv._sel = null;
     if (cs && cs.visible !== false) {
       const r = resueltas.find(x => x.c.id === cs.id);
-      if (r && r.figs.length) {
-        const b = G().bboxDe(r.figs);
-        const a = m2p(b.x1, b.y2), z = m2p(b.x2, b.y1);
+      const bl = r ? cajaLocal(cs, r.base) : null;
+      if (bl) {
+        const esq = ['nw', 'ne', 'se', 'sw'].map(d => m2p(...puntoHandle(cs, bl, d)));
         ctx.save();
         ctx.strokeStyle = '#5F7C8E'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]);
-        ctx.strokeRect(a[0] - 3, a[1] - 3, (z[0] - a[0]) + 6, (z[1] - a[1]) + 6);
-        ctx.setLineDash([]);
-        ctx.fillStyle = '#5F7C8E';
-        ctx.fillRect(z[0] + 3 - 6, z[1] + 3 - 6, 12, 12);   // handle de tamaño
+        ctx.beginPath(); ctx.moveTo(esq[0][0], esq[0][1]);
+        for (let i = 1; i < 4; i++) ctx.lineTo(esq[i][0], esq[i][1]);
+        ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+
+        // varilla y perilla de giro
+        const pg = m2p(...puntoGiro(cs, bl)), pn = m2p(...puntoHandle(cs, bl, 'n'));
+        ctx.strokeStyle = '#5F7C8E'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(pn[0], pn[1]); ctx.lineTo(pg[0], pg[1]); ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(pg[0], pg[1], 7, 0, 7); ctx.fill();
+        ctx.strokeStyle = '#5F7C8E'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.strokeStyle = '#5F7C8E'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(pg[0], pg[1], 3.4, 0.6, 5.2); ctx.stroke();
+
+        // ocho tiradores de tamaño
+        const hs = {};
+        for (const d of Object.keys(DIRS)) {
+          const p = m2p(...puntoHandle(cs, bl, d)); hs[d] = p;
+          const lado = (d.length === 1);
+          ctx.fillStyle = lado ? '#ECE6DA' : '#fff';
+          ctx.strokeStyle = '#5F7C8E'; ctx.lineWidth = 1.6;
+          ctx.beginPath(); ctx.rect(p[0] - 5, p[1] - 5, 10, 10); ctx.fill(); ctx.stroke();
+        }
         ctx.restore();
-        cv._handle = [z[0] + 3, z[1] + 3];
+        cv._sel = { id: cs.id, bl, hs, giro: pg };
       }
-    } else cv._handle = null;
+    }
     cv._resueltas = resueltas;
 
     // guías de centro
@@ -164,44 +214,176 @@
     }
     return null;
   }
+  function bajoCursor(cv, px, py) {
+    const s = cv._sel;
+    if (s) {
+      if (Math.hypot(px - s.giro[0], py - s.giro[1]) < 11) return { tipo: 'giro' };
+      for (const d of Object.keys(s.hs)) {
+        const p = s.hs[d];
+        if (Math.abs(px - p[0]) < 8 && Math.abs(py - p[1]) < 8) return { tipo: 'escala', dir: d };
+      }
+    }
+    return null;
+  }
+  const CURSORES = ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'];
+  function cursorDe(cv, dir) {
+    const s = cv._sel; if (!s) return 'default';
+    const p = s.hs[dir], c = m2p(num(capaSel().x, 0), num(capaSel().y, 0));
+    let a = Math.atan2(p[1] - c[1], p[0] - c[0]) * 180 / Math.PI;
+    a = ((a % 180) + 180) % 180;
+    return CURSORES[Math.round(a / 45) % 4];
+  }
+
   function onDown(e) {
     const cv = $('#d3d-2d'); if (!cv || !P) return;
     const r = cv.getBoundingClientRect();
     const px = e.clientX - r.left, py = e.clientY - r.top;
     const cs = capaSel();
-    if (cs && cv._handle && Math.abs(px - cv._handle[0]) < 12 && Math.abs(py - cv._handle[1]) < 12) {
-      const base = cs.tipo === 'texto' ? num(cs.mm, 10) : num(cs.ancho, 15);
-      arrastre = { modo: 'escala', id: cs.id, px, py, base, alto0: num(cs.alto, 15) };
+
+    const h = bajoCursor(cv, px, py);
+    if (cs && h) {
+      const bl = cv._sel.bl;
+      if (h.tipo === 'giro') {
+        const m = p2m(px, py);
+        arrastre = { modo: 'giro', id: cs.id, rot0: num(cs.rot, 0),
+                     ang0: Math.atan2(m[1] - num(cs.y, 0), m[0] - num(cs.x, 0)) * 180 / Math.PI };
+      } else {
+        const [ux, uy] = DIRS[h.dir];
+        // el punto de anclaje es el tirador opuesto, y se queda quieto mientras se estira
+        const anclaL = [-ux * bl.w / 2, -uy * bl.h / 2];
+        const [ax, ay] = rotar(anclaL[0], anclaL[1], rad(cs.rot));
+        arrastre = { modo: 'escala', id: cs.id, dir: h.dir, ux, uy,
+                     w0: bl.w, h0: bl.h, mm0: num(cs.mm, 10),
+                     ex0: num(cs.escalaX, 1) || 1, ey0: num(cs.escalaY, 1) || 1,
+                     ancla: [ax + num(cs.x, 0), ay + num(cs.y, 0)] };
+      }
       cv.setPointerCapture(e.pointerId); e.preventDefault(); return;
     }
+
     const c = hit(px, py);
     if (c) {
-      if (c.id !== sel) { sel = c.id; pintarPanel(); }
+      // hay que redibujar aquí: si solo se toca sin arrastrar, nadie más lo haría y
+      // los tiradores no aparecían hasta mover la pieza.
+      if (c.id !== sel) { sel = c.id; pintarPanel(); dibujar(); }
       arrastre = { modo: 'mover', id: c.id, px, py, x0: num(c.x, 0), y0: num(c.y, 0) };
       cv.setPointerCapture(e.pointerId); e.preventDefault();
-    } else if (sel) { sel = null; pintarPanel(); dibujar(); }
+    } else {
+      // el fondo desplaza la vista; si no se llegó a mover, es un clic que deselecciona
+      arrastre = { modo: 'pan', px, py, cx0: vp.cx, cy0: vp.cy, movido: false };
+      cv.setPointerCapture(e.pointerId); e.preventDefault();
+    }
   }
+
   function onMove(e) {
-    if (!arrastre) return;
-    const cv = $('#d3d-2d'); const r = cv.getBoundingClientRect();
+    const cv = $('#d3d-2d'); if (!cv || !P) return;
+    const r = cv.getBoundingClientRect();
     const px = e.clientX - r.left, py = e.clientY - r.top;
+
+    if (!arrastre) {   // solo actualizar el cursor
+      const h = bajoCursor(cv, px, py);
+      cv.style.cursor = h ? (h.tipo === 'giro' ? 'grab' : cursorDe(cv, h.dir)) : (hit(px, py) ? 'move' : 'default');
+      return;
+    }
+
+    if (arrastre.modo === 'pan') {
+      if (Math.hypot(px - arrastre.px, py - arrastre.py) > 3) arrastre.movido = true;
+      vp.cx = arrastre.cx0 + (px - arrastre.px);
+      vp.cy = arrastre.cy0 + (py - arrastre.py);
+      dibujar(); e.preventDefault(); return;
+    }
+
     const c = (P.capas || []).find(x => x.id === arrastre.id); if (!c) return;
+
     if (arrastre.modo === 'mover') {
       let nx = arrastre.x0 + (px - arrastre.px) / vp.s;
       let ny = arrastre.y0 - (py - arrastre.py) / vp.s;
       if (Math.abs(nx) < 1.2) nx = 0;           // imán al centro: alinear a ojo nunca queda recto
       if (Math.abs(ny) < 1.2) ny = 0;
       c.x = Math.round(nx * 10) / 10; c.y = Math.round(ny * 10) / 10;
-    } else {
-      const d = ((px - arrastre.px) / vp.s) + ((arrastre.py - py) / vp.s);
-      const f = Math.max(0.15, 1 + d / Math.max(8, arrastre.base));
-      if (c.tipo === 'texto') c.mm = Math.max(2, Math.round(arrastre.base * f * 10) / 10);
-      else { c.ancho = Math.max(2, Math.round(arrastre.base * f * 10) / 10); c.alto = Math.max(2, Math.round(arrastre.alto0 * f * 10) / 10); }
+
+    } else if (arrastre.modo === 'giro') {
+      const m = p2m(px, py);
+      const ang = Math.atan2(m[1] - num(c.y, 0), m[0] - num(c.x, 0)) * 180 / Math.PI;
+      let rot = arrastre.rot0 + (ang - arrastre.ang0);
+      if (e.shiftKey) rot = Math.round(rot / 15) * 15;
+      else { const q = Math.round(rot / 90) * 90; if (Math.abs(rot - q) < 2.5) rot = q; }  // imán a los rectos
+      c.rot = Math.round(((rot % 360) + 360) % 360 * 10) / 10;
+
+    } else if (arrastre.modo === 'escala') {
+      const m = p2m(px, py);
+      // el tirador arrastrado, medido desde el ancla y en los ejes de la pieza
+      const d = rotar(m[0] - arrastre.ancla[0], m[1] - arrastre.ancla[1], -rad(c.rot));
+      const libreX = arrastre.ux !== 0, libreY = arrastre.uy !== 0;
+      let w = libreX ? Math.max(0.6, Math.abs(d[0])) : arrastre.w0;
+      let h = libreY ? Math.max(0.6, Math.abs(d[1])) : arrastre.h0;
+      if (libreX && libreY && (e.shiftKey || c.tipo === 'texto')) {
+        const f = Math.max(w / arrastre.w0, h / arrastre.h0);
+        w = arrastre.w0 * f; h = arrastre.h0 * f;
+      }
+      if (c.tipo === 'texto') {
+        if (libreX && libreY) c.mm = Math.max(1.5, Math.round(arrastre.mm0 * (w / arrastre.w0) * 10) / 10);
+        else if (libreX) c.escalaX = Math.max(0.1, Math.round(arrastre.ex0 * (w / arrastre.w0) * 100) / 100);
+        else c.escalaY = Math.max(0.1, Math.round(arrastre.ey0 * (h / arrastre.h0) * 100) / 100);
+      } else {
+        if (libreX) c.ancho = Math.max(1, Math.round(w * 10) / 10);
+        if (libreY) c.alto = Math.max(1, Math.round(h * 10) / 10);
+      }
+      // Recolocar la pieza para que el ancla no se mueva. Se usan el w/h recién
+      // calculados y no la caja del caché: ese caché todavía tiene la medida vieja
+      // hasta el siguiente dibujo, y el ancla se arrancaba medio milímetro por paso.
+      const aL = rotar(-arrastre.ux * w / 2, -arrastre.uy * h / 2, rad(c.rot));
+      c.x = Math.round((arrastre.ancla[0] - aL[0]) * 10) / 10;
+      c.y = Math.round((arrastre.ancla[1] - aL[1]) * 10) / 10;
     }
     dibujar(); agendar3D(); sincronizarCampos();
     e.preventDefault();
   }
-  function onUp() { if (arrastre) { arrastre = null; guardarSuave(); } }
+
+  function onUp() {
+    if (!arrastre) return;
+    const era = arrastre; arrastre = null;
+    if (era.modo === 'pan') { if (!era.movido && sel) { sel = null; pintarPanel(); dibujar(); } return; }
+    guardarSuave();
+  }
+
+  function onRueda(e) {
+    if (!P || vista !== '2d') return;
+    const cv = $('#d3d-2d'); if (!cv) return;
+    const r = cv.getBoundingClientRect();
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    const f = e.deltaY < 0 ? 1.13 : 1 / 1.13;
+    const ns = Math.max(0.4, Math.min(80, vp.s * f)), real = ns / vp.s;
+    vp.cx = px - (px - vp.cx) * real;           // acercar hacia donde apunta el cursor
+    vp.cy = py - (py - vp.cy) * real;
+    vp.s = ns;
+    dibujar(); e.preventDefault();
+  }
+
+  function onTecla(e) {
+    if (!P || vista !== '2d') return;
+    const t = (document.activeElement || {}).tagName;
+    if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
+    if ($('#modal-root') && $('#modal-root').children.length) return;
+    const c = capaSel();
+    if (e.key === 'Escape') { if (sel) { sel = null; pintarPanel(); dibujar(); } return; }
+    if (!c) return;
+    const paso = e.shiftKey ? 5 : 0.5;
+    let usada = true;
+    switch (e.key) {
+      case 'ArrowLeft':  c.x = Math.round((num(c.x, 0) - paso) * 10) / 10; break;
+      case 'ArrowRight': c.x = Math.round((num(c.x, 0) + paso) * 10) / 10; break;
+      case 'ArrowUp':    c.y = Math.round((num(c.y, 0) + paso) * 10) / 10; break;
+      case 'ArrowDown':  c.y = Math.round((num(c.y, 0) - paso) * 10) / 10; break;
+      case 'Delete': case 'Backspace': API.quitar(c.id); return;
+      case 'd': case 'D': if (e.ctrlKey || e.metaKey) { API.duplicar(c.id); e.preventDefault(); } return;
+      case '[': c.rot = Math.round((num(c.rot, 0) - (e.shiftKey ? 15 : 1)) * 10) / 10; break;
+      case ']': c.rot = Math.round((num(c.rot, 0) + (e.shiftKey ? 15 : 1)) * 10) / 10; break;
+      default: usada = false;
+    }
+    if (!usada) return;
+    e.preventDefault();
+    dibujar(); agendar3D(); sincronizarCampos(); guardarSuave();
+  }
 
   /* ---------- 3D ---------- */
   function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error(src)); document.head.appendChild(s); }); }
@@ -301,6 +483,13 @@
         <label class="field">Giro (°)<input type="number" step="1" value="${num(c.rot, 0)}" oninput="DISENO3D.prop('rot',this.value)"></label>
         <label class="field">Relieve (mm)<input type="number" step="0.2" min="0.2" value="${num(c.altura, 1.2)}" oninput="DISENO3D.prop('altura',this.value)"></label>
       </div>
+      <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn ghost sm" title="Girar 90° a la izquierda" onclick="DISENO3D.girar(-90)">⟲ 90°</button>
+        <button class="btn ghost sm" title="Girar 90° a la derecha" onclick="DISENO3D.girar(90)">⟳ 90°</button>
+        <button class="btn ghost sm" title="Dejarla derecha" onclick="DISENO3D.enderezar()">Enderezar</button>
+        <button class="btn ghost sm" title="Llevar al centro" onclick="DISENO3D.centrarCapa()">Centrar</button>
+        <button class="btn ghost sm" title="Centrar solo de lado a lado" onclick="DISENO3D.centrarCapa('x')">Centrar ↔</button>
+      </div>
       <label class="field" style="margin-top:10px">Color${selColor(c.color, 'DISENO3D.color')}</label>
       <label class="row" style="margin-top:10px;gap:8px;font-size:13px">
         <input type="checkbox" style="width:auto" ${c.calado ? 'checked' : ''} onchange="DISENO3D.prop('calado',this.checked)">
@@ -318,7 +507,12 @@
           <label class="field">Alineación<select onchange="DISENO3D.prop('align',this.value)">
             ${[['izquierda', 'Izquierda'], ['centro', 'Centro'], ['derecha', 'Derecha']].map(([v, l]) => `<option value="${v}" ${c.align === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
           <label class="field">Separación (mm)<input type="number" step="0.2" value="${num(c.espaciado, 0)}" oninput="DISENO3D.prop('espaciado',this.value)"></label>
-        </div>${comun}`;
+          <label class="field">Ancho de letra (%)<input type="number" step="5" min="10" value="${Math.round((num(c.escalaX, 1) || 1) * 100)}" oninput="DISENO3D.prop('escalaX',this.value/100)"></label>
+          <label class="field">Alto de letra (%)<input type="number" step="5" min="10" value="${Math.round((num(c.escalaY, 1) || 1) * 100)}" oninput="DISENO3D.prop('escalaY',this.value/100)"></label>
+        </div>
+        ${((num(c.escalaX, 1) || 1) !== 1 || (num(c.escalaY, 1) || 1) !== 1)
+          ? `<button class="linkish" style="margin-top:6px" onclick="DISENO3D.sinEstirar()">Quitar el estirado</button>` : ''}
+        ${comun}`;
     }
     if (c.tipo === 'figura') {
       const def = G().FIGURAS[c.figura] || {};
@@ -421,7 +615,9 @@
       if (document.activeElement === inp) return;
       const h = inp.getAttribute('oninput') || '';
       const m = h.match(/DISENO3D\.prop\('(\w+)'/);
-      if (m && c[m[1]] != null) inp.value = c[m[1]];
+      if (!m || c[m[1]] == null) return;
+      // los campos de estirado se muestran en porcentaje, el modelo guarda el factor
+      inp.value = /\/\s*100/.test(h) ? Math.round(c[m[1]] * 100) : c[m[1]];
     });
   }
 
@@ -468,7 +664,8 @@
               <div id="d3d-3d" data-h="420" style="${vista === '3d' ? '' : 'display:none'};height:420px;background:#ECE6DA;border-radius:12px"></div>
             </div>
             <div class="muted" style="margin-top:6px">${vista === '2d'
-              ? 'Arrastra para mover · el cuadrito de la esquina cambia el tamaño · toca el fondo para soltar la selección.'
+              ? 'Arrastra para mover · los cuadritos cambian el tamaño (los del medio estiran solo un lado) · la perilla de arriba gira · rueda para acercar y arrastra el fondo para correr la vista.<br>'
+                + 'Con <b>Shift</b>: gira de 15° en 15° y el tamaño mantiene la proporción. Flechas para mover fino, <b>[</b> y <b>]</b> para girar, <b>Supr</b> para quitar.'
               : 'Arrastra para girar · rueda para acercar.'}</div>
             <div id="d3d-avisos" style="margin-top:10px"></div>
           </div>
@@ -501,10 +698,20 @@
         cv.addEventListener('pointermove', onMove);
         cv.addEventListener('pointerup', onUp);
         cv.addEventListener('pointercancel', onUp);
+        cv.addEventListener('wheel', onRueda, { passive: false });
+        cv.addEventListener('dblclick', () => {   // doble clic en un texto: al grano
+          const c = capaSel(); if (!c || c.tipo !== 'texto') return;
+          const ta = $('#d3d-panel textarea'); if (ta) { ta.focus(); ta.select(); }
+        });
       }
-      window.addEventListener('resize', API._rs = () => { dibujar(); if (three) { const W = three.cont.clientWidth || 400; three.camera.aspect = W / 420; three.camera.updateProjectionMatrix(); three.renderer.setSize(W, 420); } });
+      // Al volver a entrar a la pestaña se vuelve a montar todo: hay que soltar los
+      // oyentes de la vez anterior o se van apilando y cada tecla se procesa N veces.
+      if (API._rs) window.removeEventListener('resize', API._rs);
+      if (API._kd) window.removeEventListener('keydown', API._kd);
+      window.addEventListener('resize', API._rs = () => { dibujar(true); if (three) { const W = three.cont.clientWidth || 400; three.camera.aspect = W / 420; three.camera.updateProjectionMatrix(); three.renderer.setSize(W, 420); } });
+      window.addEventListener('keydown', API._kd = onTecla);
       try { await window.D3DFuentes.cargar((P.capas.find(c => c.tipo === 'texto') || {}).fuente || 'poppins'); } catch (e) { toast('No pude cargar las tipografías (¿sin internet?)'); }
-      await dibujar();
+      await dibujar(true);
       refrescar3D();
       ensureThree().then(() => { if (vista === '3d') refrescar3D(); }).catch(() => {});
     },
@@ -520,7 +727,7 @@
       const cont = c2 && c2.closest('.card');
       if (cont) cont.querySelectorAll('.subtab').forEach(b => b.classList.toggle('active', b.textContent.trim() === (v === '2d' ? 'Componer' : 'Ver en 3D')));
     },
-    encuadrar() { if (vista === '3d') { three && (three.encuadrado = false); encuadrar(); } else dibujar(); },
+    encuadrar() { if (vista === '3d') { three && (three.encuadrado = false); encuadrar(); } else dibujar(true); },
     preset(id) {
       if (P && (P.capas || []).length && !confirm('Se reemplaza lo que tienes en pantalla por la plantilla «' + id + '». ¿Seguir?\n\nLo anterior queda guardado en «Mis diseños».')) return;
       persistir();
@@ -528,7 +735,7 @@
       sel = null; cacheFigs = new Map(); cacheBase = { clave: null, figs: [] };
       if (three) three.encuadrado = false;
       const n = $('#d3d-nombre'); if (n) n.value = P.nombre;
-      pintarPanel(); dibujar(); agendar3D();   // sin guardar: todavía no lo tocó
+      pintarPanel(); dibujar(true); agendar3D();   // sin guardar: todavía no lo tocó
     },
     nombre(v) { P.nombre = v; guardarSuave(); },
     sel(id) { sel = (sel === id ? null : id); pintarPanel(); dibujar(); },
@@ -541,6 +748,15 @@
       cambio(k === 'figura' || k === 'txt');
     },
     param(k, v) { const c = capaSel(); if (!c) return; c.params = c.params || {}; c.params[k] = num(v, 0); cacheFigs.delete(c.id); cambio(); },
+    sinEstirar() { const c = capaSel(); if (!c) return; c.escalaX = 1; c.escalaY = 1; cambio(true); },
+    girar(g) { const c = capaSel(); if (!c) return; c.rot = Math.round(((num(c.rot, 0) + g) % 360 + 360) % 360 * 10) / 10; cambio(true); },
+    enderezar() { const c = capaSel(); if (!c) return; c.rot = 0; cambio(true); },
+    centrarCapa(eje) {
+      const c = capaSel(); if (!c) return;
+      if (eje !== 'y') c.x = 0;
+      if (eje !== 'x') c.y = 0;
+      cambio(true);
+    },
     color(i) { const c = capaSel(); if (!c) return; c.color = i; cambio(true); },
     colorBase(i) { P.base.color = i; cambio(true); },
     tinte(i, hex) {
@@ -653,7 +869,7 @@
       if (three) three.encuadrado = false;
       window.A.closeModal();
       const n = $('#d3d-nombre'); if (n) n.value = P.nombre;
-      pintarPanel(); dibujar(); agendar3D();   // abrir no es editar
+      pintarPanel(); dibujar(true); agendar3D();   // abrir no es editar
     },
     borrar(id) {
       const DB = window.DB; const i = (DB.disenos3d || []).findIndex(x => x.id === id); if (i < 0) return;

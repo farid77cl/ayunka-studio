@@ -135,14 +135,38 @@ Un compositor por **capas**, no un molde cerrado: se parte de una plantilla y se
 agrega o quita lo que sea. Todo — texto, figuras y las imágenes que subas — termina
 siendo un contorno, así que se trata igual y se puede mezclar sin límite.
 
-**Cómo se trabaja.** En «Componer» arrastras las piezas sobre el lienzo y el cuadrito
-de la esquina cambia el tamaño; en «Ver en 3D» lo revisas girándolo. Se guarda solo
-mientras editas, y los diseños quedan en «Mis diseños».
+**Cómo se trabaja.** En «Componer» se arma con el mouse; en «Ver en 3D» se revisa
+girándolo. Se guarda solo mientras editas, y los diseños quedan en «Mis diseños».
+
+| Con el mouse | |
+|---|---|
+| Arrastrar la pieza | La mueve (se imanta al centro) |
+| Cuadritos de las esquinas | Cambian el tamaño |
+| Cuadritos del medio | Estiran **un solo lado** |
+| Perilla de arriba | **Gira** la pieza |
+| Rueda | Acerca y aleja, hacia donde apunta el cursor |
+| Arrastrar el fondo | Corre la vista · un clic sin mover suelta la selección |
+| **Shift** | Al girar va de 15° en 15°; al escalar mantiene la proporción |
+
+| Con el teclado | |
+|---|---|
+| Flechas | Mueven 0,5 mm (con **Shift**, 5 mm) |
+| `[` y `]` | Giran 1° (con **Shift**, 15°) |
+| **Supr** | Quita la capa · **Esc** suelta la selección |
+| **Ctrl+D** | Duplica |
+
+Los tiradores **giran junto con la pieza**, así que estirar algo torcido sigue siendo
+natural, y la esquina contraria se queda clavada donde estaba en vez de irse sola.
+
+El encuadre **no se recalcula mientras trabajas**: si dependiera del contenido, arrastrar
+una pieza hacia afuera reescalaría toda la vista y se sentiría como que el diseño huye del
+dedo. Se reencuadra al abrir, al cambiar de plantilla y con el botón «Centrar».
 
 ### Qué se puede poner
 
 - **Texto** — 14 tipografías reales (cursivas como Pacifico o Great Vibes, palo seco,
-  redondeadas). Acentos y ñ salen bien. Varias líneas, alineación y separación de letras.
+  redondeadas). Acentos y ñ salen bien. Varias líneas, alineación, separación de letras y
+  **estirado** (letras condensadas o altas) sin tocar el tamaño nominal.
 - **Figuras** — 25 formas: nube, luna, estrella, flor, corazón, osito, conejo, huellita,
   mariposa, moño, carrete de hilo, botón, hueso… con parámetros propios (las puntas de
   la estrella, los pétalos de la flor).
