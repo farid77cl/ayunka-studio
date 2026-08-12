@@ -150,6 +150,9 @@ girándolo. Se guarda solo mientras editas, y los diseños quedan en «Mis dise�
 | Arrastrar el fondo | Corre la vista · un clic sin mover suelta la selección |
 | **Shift** | Al girar va de 15° en 15°; al escalar mantiene la proporción |
 
+En **Ver en 3D** también se edita: arrastra una pieza para moverla, con **Shift** la subes
+y la bajas (altura Z), y arrastrando el fondo giras la cámara.
+
 | Con el teclado | |
 |---|---|
 | Flechas | Mueven 0,5 mm (con **Shift**, 5 mm) |
@@ -221,9 +224,16 @@ Dos caminos, según lo que quieras:
 
 **Usa 3MF.** El STL *no guarda color* — es una lista de triángulos y nada más — así que
 una pieza pensada en cuatro colores llega al laminador como un bloque de uno solo. El 3MF
-sí lo guarda: al abrirlo en Creality Print, cada parte ya viene asignada a su carrete del
-CFS. El archivo se escribe con la estructura que entienden Creality Print, OrcaSlicer,
-Bambu Studio y PrusaSlicer (un objeto por pieza física y, dentro, un volumen por color).
+sí lo guarda: al abrirlo en **Creality Print**, cada parte ya viene asignada a su carrete
+del CFS.
+
+El archivo se escribe con el formato de **Creality Print / OrcaSlicer / Bambu Studio**:
+cada color es un objeto con su propia malla, un objeto contenedor los junta con
+`<components>`, y `Metadata/model_settings.config` le da a cada `<part>` su número de
+extrusor. **Ojo con esto**: PrusaSlicer usa otra variante (una sola malla con los colores
+como rangos de triángulos en `<volume firstid lastid>`). Son incompatibles — si se escribe
+la de PrusaSlicer, Creality Print carga la pieza entera de un solo color sin avisar de nada.
+Aquí se usa la de Creality a propósito.
 
 Quedan también las salidas en STL, por si hacen falta:
 

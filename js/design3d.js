@@ -407,7 +407,13 @@
     if (THREE.OrbitControls) { controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; }
     // `three` se arma ANTES de arrancar el bucle: el primer frame corre de inmediato
     // y si todavía valía null reventaba al intentar guardar el raf.
-    three = { THREE, scene, camera, renderer, controls, grupo, cont, raf: 0, encuadrado: false };
+    three = { THREE, scene, camera, renderer, controls, grupo, cont, raf: 0, encuadrado: false, ray: new THREE.Raycaster() };
+    // Se escucha en fase de captura para poder frenar a OrbitControls cuando el clic
+    // cae sobre una pieza: si no, la cámara giraría a la vez que se arrastra.
+    renderer.domElement.addEventListener('pointerdown', onDown3D, true);
+    renderer.domElement.addEventListener('pointermove', onMove3D, true);
+    renderer.domElement.addEventListener('pointerup', onUp3D, true);
+    renderer.domElement.addEventListener('pointercancel', onUp3D, true);
     (function loop() { if (!three) return; three.raf = requestAnimationFrame(loop); if (controls) controls.update(); renderer.render(scene, camera); })();
   }
   function encuadrar() {
@@ -418,6 +424,95 @@
     if (three.controls) { three.controls.target.set(0, 0, d.espesor / 2); three.controls.update(); }
     three.encuadrado = true;
   }
+  /* ---------- editar en la vista 3D ----------
+     Se puede arrastrar la pieza directamente sobre el modelo. El movimiento se hace
+     sobre un plano horizontal a la altura del punto que se tocó, que es lo que hace
+     que la pieza siga al cursor sin irse en perspectiva. Con Shift el plano se pone
+     de canto y entonces se sube y se baja (la altura Z).                            */
+  let arr3d = null;
+
+  function rayo(e) {
+    const el = three.renderer.domElement, r = el.getBoundingClientRect();
+    three.ray.setFromCamera({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, three.camera);
+    return three.ray;
+  }
+  function golpea(e) {
+    const hits = rayo(e).intersectObjects(three.grupo.children, false);
+    for (const h of hits) if (h.object.userData && h.object.userData.capaId) return h;
+    return null;
+  }
+  function planoDe(punto, vertical) {
+    const THREE = three.THREE;
+    if (!vertical) return new THREE.Plane(new THREE.Vector3(0, 0, 1), -punto.z);
+    const n = new THREE.Vector3();
+    three.camera.getWorldDirection(n); n.z = 0; n.normalize();
+    return new THREE.Plane(n, -n.dot(punto));
+  }
+  function enPlano(e, plano) {
+    const p = new three.THREE.Vector3();
+    return rayo(e).ray.intersectPlane(plano, p) ? p : null;
+  }
+  function mallasDe(id) { return three.grupo.children.filter(m => m.userData && m.userData.capaId === id); }
+  function resaltar() {
+    if (!three) return;
+    for (const m of three.grupo.children) {
+      if (!m.material || !m.material.emissive) continue;
+      const act = m.userData && m.userData.capaId && m.userData.capaId === sel;
+      m.material.emissive.setHex(act ? 0x333c44 : 0x000000);
+    }
+  }
+
+  function onDown3D(e) {
+    if (!three || !P) return;
+    const h = golpea(e);
+    if (!h) { if (sel) { sel = null; pintarPanel(); resaltar(); } return; }
+    const c = (P.capas || []).find(x => x.id === h.object.userData.capaId);
+    if (!c) return;
+    if (three.controls) three.controls.enabled = false;   // que no gire la cámara a la vez
+    e.stopPropagation(); e.preventDefault();
+    if (c.id !== sel) { sel = c.id; pintarPanel(); resaltar(); }
+    const vertical = !!e.shiftKey;
+    const plano = planoDe(h.point, vertical);
+    const p0 = enPlano(e, plano) || h.point;
+    arr3d = { id: c.id, plano, vertical, p0, x0: num(c.x, 0), y0: num(c.y, 0), z0: num(c.z, 0),
+              mallas: mallasDe(c.id).map(m => ({ m, base: m.position.clone() })) };
+    try { three.renderer.domElement.setPointerCapture(e.pointerId); } catch (x) {}
+  }
+
+  function onMove3D(e) {
+    if (!three || !P) return;
+    if (!arr3d) {
+      three.renderer.domElement.style.cursor = golpea(e) ? 'move' : 'default';
+      return;
+    }
+    const p = enPlano(e, arr3d.plano); if (!p) return;
+    const c = (P.capas || []).find(x => x.id === arr3d.id); if (!c) return;
+    if (arr3d.vertical) {
+      c.z = Math.round((arr3d.z0 + (p.z - arr3d.p0.z)) * 10) / 10;
+    } else {
+      let nx = arr3d.x0 + (p.x - arr3d.p0.x), ny = arr3d.y0 + (p.y - arr3d.p0.y);
+      if (Math.abs(nx) < 1.2) nx = 0;
+      if (Math.abs(ny) < 1.2) ny = 0;
+      c.x = Math.round(nx * 10) / 10; c.y = Math.round(ny * 10) / 10;
+    }
+    // Se mueven las mallas en el momento y se recompila al soltar: recompilar en cada
+    // paso del arrastre da tirones con textos grandes.
+    for (const { m, base } of arr3d.mallas) {
+      m.position.set(base.x + (num(c.x, 0) - arr3d.x0), base.y + (num(c.y, 0) - arr3d.y0), base.z + (num(c.z, 0) - arr3d.z0));
+    }
+    sincronizarCampos();
+    e.stopPropagation(); e.preventDefault();
+  }
+
+  function onUp3D(e) {
+    if (!three) return;
+    if (three.controls) three.controls.enabled = true;
+    if (!arr3d) return;
+    arr3d = null;
+    e.stopPropagation();
+    guardarSuave(); refrescar3D(); dibujar();
+  }
+
   function agendar3D() { clearTimeout(t3d); t3d = setTimeout(refrescar3D, 260); }
   async function refrescar3D() {
     if (!P) return;
@@ -432,6 +527,7 @@
     }
     const g = B().aThree(compilado, { paleta: P.paleta, pieza: P._piezaVista || null });
     while (g.children.length) three.grupo.add(g.children[0]);
+    resaltar();
     if (!three.encuadrado) encuadrar();
   }
 
@@ -688,7 +784,7 @@
             <div class="muted" style="margin-top:6px">${vista === '2d'
               ? 'Arrastra para mover · los cuadritos cambian el tamaño (los del medio estiran solo un lado) · la perilla de arriba gira · rueda para acercar y arrastra el fondo para correr la vista.<br>'
                 + 'Con <b>Shift</b>: gira de 15° en 15° y el tamaño mantiene la proporción. Flechas para mover fino, <b>[</b> y <b>]</b> para girar, <b>Supr</b> para quitar.'
-              : 'Arrastra para girar · rueda para acercar.'}</div>
+              : 'Arrastra una pieza para moverla · con <b>Shift</b> la subes y la bajas (altura Z) · arrastra el fondo para girar la cámara y usa la rueda para acercar.'}</div>
             <div id="d3d-avisos" style="margin-top:10px"></div>
           </div>
           <div class="card muted" style="font-size:13px;margin-top:12px">
@@ -760,7 +856,7 @@
       pintarPanel(); dibujar(true); agendar3D();   // sin guardar: todavía no lo tocó
     },
     nombre(v) { P.nombre = v; guardarSuave(); },
-    sel(id) { sel = (sel === id ? null : id); pintarPanel(); dibujar(); },
+    sel(id) { sel = (sel === id ? null : id); pintarPanel(); dibujar(); resaltar(); },
     prop(k, v) {
       const c = capaSel(); if (!c) return;
       c[k] = (typeof v === 'boolean' || ['txt', 'fuente', 'align', 'figura', 'modo'].includes(k)) ? v : num(v, 0);

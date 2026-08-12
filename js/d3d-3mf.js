@@ -112,16 +112,22 @@
     const enc = new TextEncoder();
     const nb = (nombreBase || 'diseno').trim() || 'diseno';
 
+    /* Formato Bambu / Orca / Creality Print: cada color es un OBJETO propio con su
+       malla, y un objeto contenedor los junta con <components>. El config asigna el
+       extrusor a cada <part>.
+
+       Antes se escribía al estilo PrusaSlicer (una sola malla y los colores como
+       rangos de triángulos en <volume firstid lastid>). Es 3MF válido, pero Creality
+       Print no lo interpreta: cargaba la pieza entera de un color. */
     const piezas = [...new Set(compilado.solidos.map(s => s.pieza))];
-    const objetos = [];   // {id, nombre, malla, volumenes:[{nombre,extruder,first,last}]}
+    const hojas = [];        // {id, nombre, extruder, verts, tris}
+    const contenedores = []; // {id, nombre, partes:[hoja]}
     let id = 1;
 
     for (const pieza of piezas) {
       const deLaPieza = compilado.solidos.filter(s => s.pieza === pieza);
       const colores = [...new Set(deLaPieza.map(s => s.color))].sort((a, b) => a - b);
-      const geosPorColor = [], volumenes = [];
-      let acumulados = 0;
-      const mallas = [];
+      const partes = [];
       for (const color of colores) {
         const geos = [];
         for (const s of deLaPieza.filter(x => x.color === color)) {
@@ -131,24 +137,14 @@
         const m = mallaDe(geos);
         geos.forEach(g => g.dispose && g.dispose());
         if (!m.tris.length) continue;
-        mallas.push({ color, malla: m });
+        const hoja = { id: ++id, nombre: 'Color ' + color, extruder: color, verts: m.verts, tris: m.tris };
+        hojas.push(hoja); partes.push(hoja);
       }
-      if (!mallas.length) continue;
-
-      // se juntan las mallas de la pieza en una sola, y cada color queda como un
-      // rango de triángulos: así es como estos laminadores guardan los volúmenes
-      const verts = [], tris = [];
-      for (const { color, malla } of mallas) {
-        const base = verts.length;
-        for (const v of malla.verts) verts.push(v);
-        const first = tris.length;
-        for (const t of malla.tris) tris.push([t[0] + base, t[1] + base, t[2] + base]);
-        volumenes.push({ nombre: 'Color ' + color, extruder: color, first, last: tris.length - 1 });
-      }
-      objetos.push({ id: id++, nombre: piezas.length > 1 ? (nb + ' · ' + pieza) : nb, verts, tris, volumenes });
+      if (!partes.length) continue;
+      contenedores.push({ id: ++id, nombre: piezas.length > 1 ? (nb + ' · ' + pieza) : nb, partes });
     }
 
-    if (!objetos.length) return null;
+    if (!contenedores.length) return null;
 
     /* --- 3D/3dmodel.model --- */
     let modelo = '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -156,33 +152,38 @@
       ' <metadata name="Application">Ayunka Studio</metadata>\n' +
       ' <metadata name="Title">' + esc(nb) + '</metadata>\n' +
       ' <resources>\n';
-    for (const o of objetos) {
-      modelo += '  <object id="' + o.id + '" type="model" name="' + esc(o.nombre) + '">\n   <mesh>\n    <vertices>\n';
+    for (const h of hojas) {
+      modelo += '  <object id="' + h.id + '" type="model" name="' + esc(h.nombre) + '">\n   <mesh>\n    <vertices>\n';
       const v = [];
-      for (const p of o.verts) v.push('     <vertex x="' + f(p[0]) + '" y="' + f(p[1]) + '" z="' + f(p[2]) + '"/>');
+      for (const p of h.verts) v.push('     <vertex x="' + f(p[0]) + '" y="' + f(p[1]) + '" z="' + f(p[2]) + '"/>');
       modelo += v.join('\n') + '\n    </vertices>\n    <triangles>\n';
       const t = [];
-      for (const q of o.tris) t.push('     <triangle v1="' + q[0] + '" v2="' + q[1] + '" v3="' + q[2] + '"/>');
+      for (const q of h.tris) t.push('     <triangle v1="' + q[0] + '" v2="' + q[1] + '" v3="' + q[2] + '"/>');
       modelo += t.join('\n') + '\n    </triangles>\n   </mesh>\n  </object>\n';
     }
+    for (const c of contenedores) {
+      modelo += '  <object id="' + c.id + '" type="model" name="' + esc(c.nombre) + '">\n   <components>\n';
+      for (const h of c.partes) modelo += '    <component objectid="' + h.id + '" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>\n';
+      modelo += '   </components>\n  </object>\n';
+    }
     modelo += ' </resources>\n <build>\n';
-    for (const o of objetos) modelo += '  <item objectid="' + o.id + '" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>\n';
+    for (const c of contenedores) modelo += '  <item objectid="' + c.id + '" transform="1 0 0 0 1 0 0 0 1 0 0 0" printable="1"/>\n';
     modelo += ' </build>\n</model>\n';
 
-    /* --- config de volúmenes y extrusores ---
-       Es lo que hace que cada color caiga en su carrete. Se escribe con los dos
-       nombres que usan los distintos laminadores: Creality Print y Orca leen
-       model_settings.config, PrusaSlicer lee Slic3r_PE_model.config.              */
+    /* --- Metadata/model_settings.config ---
+       Aquí es donde cada parte recibe su número de extrusor, que es lo que hace que
+       el color caiga en el carrete correcto del CFS. */
     let cfg = '<?xml version="1.0" encoding="UTF-8"?>\n<config>\n';
-    for (const o of objetos) {
-      cfg += '  <object id="' + o.id + '">\n';
-      cfg += '    <metadata type="object" key="name" value="' + esc(o.nombre) + '"/>\n';
-      for (const vol of o.volumenes) {
-        cfg += '    <volume firstid="' + vol.first + '" lastid="' + vol.last + '">\n';
-        cfg += '      <metadata type="volume" key="name" value="' + esc(vol.nombre) + '"/>\n';
-        cfg += '      <metadata type="volume" key="extruder" value="' + vol.extruder + '"/>\n';
-        cfg += '      <mesh edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/>\n';
-        cfg += '    </volume>\n';
+    for (const c of contenedores) {
+      cfg += '  <object id="' + c.id + '">\n';
+      cfg += '    <metadata key="name" value="' + esc(c.nombre) + '"/>\n';
+      cfg += '    <metadata key="extruder" value="' + c.partes[0].extruder + '"/>\n';
+      for (const h of c.partes) {
+        cfg += '    <part id="' + h.id + '" subtype="normal_part">\n';
+        cfg += '      <metadata key="name" value="' + esc(h.nombre) + '"/>\n';
+        cfg += '      <metadata key="extruder" value="' + h.extruder + '"/>\n';
+        cfg += '      <mesh_stat edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/>\n';
+        cfg += '    </part>\n';
       }
       cfg += '  </object>\n';
     }
@@ -202,16 +203,16 @@
       { nombre: '[Content_Types].xml', datos: enc.encode(tipos) },
       { nombre: '_rels/.rels', datos: enc.encode(rels) },
       { nombre: '3D/3dmodel.model', datos: enc.encode(modelo) },
-      { nombre: 'Metadata/model_settings.config', datos: enc.encode(cfg) },
-      { nombre: 'Metadata/Slic3r_PE_model.config', datos: enc.encode(cfg) }
+      { nombre: 'Metadata/model_settings.config', datos: enc.encode(cfg) }
     ]);
 
     return {
       nombre: nb.toLowerCase().replace(/[^a-z0-9áéíóúñ]+/gi, '-').replace(/(^-|-$)/g, '') + '.3mf',
       datos,
-      objetos: objetos.length,
-      colores: [...new Set(objetos.reduce((a, o) => a.concat(o.volumenes.map(v => v.extruder)), []))],
-      triangulos: objetos.reduce((a, o) => a + o.tris.length, 0)
+      objetos: contenedores.length,
+      partes: hojas.length,
+      colores: [...new Set(hojas.map(h => h.extruder))].sort((a, b) => a - b),
+      triangulos: hojas.reduce((a, h) => a + h.tris.length, 0)
     };
   }
   function f(n) { return (Math.round(n * 1e4) / 1e4).toString(); }

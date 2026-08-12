@@ -245,7 +245,7 @@
       const alt = Math.max(0.2, +capa.altura || 1.2);
       const z0 = zCara + (+capa.z || 0);
       if (z0 + alt <= 0.001) { avisos.push('«' + (capa.nombre || 'una capa') + '» quedó bajo la mesa con esa altura Z. Súbela.'); continue; }
-      solidos.push({ pieza: 'principal', nombre: capa.nombre || 'Capa', figs, z0: Math.max(0, z0), alt: z0 < 0 ? alt + z0 : alt, color: +capa.color || 2 });
+      solidos.push({ pieza: 'principal', nombre: capa.nombre || 'Capa', figs, z0: Math.max(0, z0), alt: z0 < 0 ? alt + z0 : alt, color: +capa.color || 2, capaId: capa.id });
       if (alt < 0.6) avisos.push('«' + (capa.nombre || 'una capa') + '» tiene ' + alt + ' mm de relieve: con boquilla 0.4 son 3 capas y casi no se nota. Sube a 0.8 mm o más.');
       if (hayBase && (+capa.z || 0) === 0 && fueraDeLaBase(G, figs, baseFigs)) {
         avisos.push('«' + (capa.nombre || 'una capa') + '» se sale del contorno de la base: esa parte queda al aire y necesitará soportes. Muévela adentro o bájala con la altura Z.');
@@ -355,7 +355,7 @@
       let geo; try { geo = geometriaDe(s); } catch (e) { console.warn('No pude extruir', s.nombre, e); continue; }
       const mat = new THREE.MeshPhongMaterial({ color: new THREE.Color(hexDe(s.color, opts.paleta)), shininess: 18, flatShading: false });
       const m = new THREE.Mesh(geo, mat);
-      m.userData = { pieza: s.pieza, color: s.color, nombre: s.nombre };
+      m.userData = { pieza: s.pieza, color: s.color, nombre: s.nombre, capaId: s.capaId || null };
       g.add(m);
     }
     return g;
