@@ -4,6 +4,9 @@ App web (PWA) para gestionar la producción de **Ayünka Crea** — accesorios 3
 
 ## Qué hace
 
+- **Diseño 3D** — crea llaveros publicitarios, letreros con luz LED, letras con nombre y
+  recuerdos de nacimiento sin salir de la app, y exporta el STL listo para la K2 Combo.
+  Ver «[Diseño 3D](#diseño-3d-taller--diseño-3d)» más abajo.
 - **Productos** — costo de producción por pieza (filamento, luz, amortización, mano de obra, empaque y **merma**) y **precio sugerido** con tu margen. Cada producto puede tener **foto**, un **filamento asociado** (usa el precio real de esa marca/rollo, no un promedio) y uno o varios **archivos STL/3MF** que se abren con un clic para laminar.
 - **Filamentos** — inventario por marca y color; cada rollo con su propio precio y costo por gramo, con alertas de stock bajo. Como tienes PLA de distintas marcas, cada producto toma el costo del filamento que le asocies.
 - **Placas** — costea una placa completa con varias piezas (tiempo de impresión compartido) y descuenta filamento del inventario.
@@ -61,6 +64,10 @@ js/store.js             · estado, persistencia y datos semilla
 js/calc.js              · motor de costeo (filamento, luz, merma, margen)
 js/pdf.js               · generación de cotizaciones PDF (jsPDF)
 js/app.js               · router y módulos de la interfaz
+js/d3d-formas.js        · Diseño 3D: figuras paramétricas y vectorizador de imágenes
+js/d3d-fuentes.js       · Diseño 3D: texto a contornos (opentype.js)
+js/d3d-build.js         · Diseño 3D: proyecto → sólidos → STL
+js/design3d.js          · Diseño 3D: lienzo 2D, capas y vista 3D
 manifest.webmanifest    · PWA
 sw.js                   · service worker (offline)
 capacitor.config.json   · configuración para wrap nativo Android
@@ -121,3 +128,73 @@ navegador: ver `../sesion-log.md`, sesión 17 y 18.
 
 **El extra entra antes del markup**, igual que el empaque: un LED de $2.500 suma $2.822 al
 costo (por el buffer de fallas) y unos $10.000 al precio sugerido con el ×3,5 actual.
+
+## Diseño 3D (Taller → Diseño 3D)
+
+Un compositor por **capas**, no un molde cerrado: se parte de una plantilla y se le
+agrega o quita lo que sea. Todo — texto, figuras y las imágenes que subas — termina
+siendo un contorno, así que se trata igual y se puede mezclar sin límite.
+
+**Cómo se trabaja.** En «Componer» arrastras las piezas sobre el lienzo y el cuadrito
+de la esquina cambia el tamaño; en «Ver en 3D» lo revisas girándolo. Se guarda solo
+mientras editas, y los diseños quedan en «Mis diseños».
+
+### Qué se puede poner
+
+- **Texto** — 14 tipografías reales (cursivas como Pacifico o Great Vibes, palo seco,
+  redondeadas). Acentos y ñ salen bien. Varias líneas, alineación y separación de letras.
+- **Figuras** — 25 formas: nube, luna, estrella, flor, corazón, osito, conejo, huellita,
+  mariposa, moño, carrete de hilo, botón, hueso… con parámetros propios (las puntas de
+  la estrella, los pétalos de la flor).
+- **Imágenes** — subes un PNG o JPG (un logo, un dibujo) y se convierte en relieve. El
+  control de **umbral** decide qué parte es sólida; conserva los huecos (la contraforma
+  de una «O», el centro de una dona) y descarta las manchitas sueltas.
+
+Cada capa lleva su color, su altura de relieve, su posición y su giro, y puede marcarse
+**calada** para que atraviese la base — que es como se hace que la luz pase por el texto.
+
+### Plantillas de partida
+
+| | |
+|---|---|
+| Llavero publicitario | Placa con la marca y el agujero de la argolla |
+| Llavero con imagen | Para subir un logo y volverlo 3D |
+| Letra con nombre | Letra gruesa, con el nombre en cursiva por delante |
+| Letrero con nombre | Placa con orificios para colgar |
+| Caja de luz LED | Frente difusor + marco + tapa |
+| Recuerdo de nacimiento | Nube con nombre, fecha, medidas y adornos |
+| Desde cero | Una placa vacía |
+
+### La luz
+
+Dos caminos, según lo que quieras:
+
+- **Retroiluminado** — no agrega piezas. La gracia está en imprimir en PLA **blanco o
+  translúcido** con 2 paredes y 15-20 % de relleno, y pegar la tira LED por detrás.
+- **Caja de luz** — genera tres piezas que se imprimen por separado: el **frente**
+  (difusor), el **marco** (con el reborde donde apoya el frente) y la **tapa trasera**
+  con su salida de cable. Además calcula **cuánta tira LED comprar** a partir del
+  contorno real.
+
+### Exportar para la K2 Combo
+
+- **Un STL por color** — lo que necesita el **CFS**: cargas los archivos juntos en
+  Creality Print, quedan alineados entre sí y a cada uno le asignas su carrete.
+- **Un STL por pieza** — para la caja de luz, que se imprime en tandas distintas.
+- **Todo en uno** — para imprimir en un solo color.
+
+También puede **guardarse como producto**, que sube los STL y crea la ficha para costearlo.
+
+### Trampas de esta pestaña
+
+- **El relieve bajo 0.8 mm casi no se ve** con boquilla de 0.4. La app avisa.
+- **Calar texto suelta las contraformas**: el centro de la «o» se cae, porque no queda
+  unido a nada. La app lo advierte y cuenta cuántas son.
+- **Las tipografías se bajan de internet** la primera vez y quedan guardadas en el
+  dispositivo; después funciona sin conexión. Sin internet y sin haberlas usado antes,
+  no hay texto.
+- **No hay booleanas 3D** a propósito. Los huecos se hacen en 2D y las cajas se arman
+  por partes; los laminadores unen sólidos que se solapan. Es menos vistoso por dentro
+  y mucho menos frágil.
+- **Las medidas mandan sobre la proporción**: si pones 65 × 28 la placa mide eso, aunque
+  la figura se estire. Las imágenes son la excepción — nunca se deforman.

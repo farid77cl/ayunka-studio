@@ -10,7 +10,7 @@
 
   const DEFAULTS = {
     params: {
-      plaPrice: 15000, petgPrice: 20000, kwh: 160, powerKw: 0.12,
+      plaPrice: 15000, petgPrice: 20000, kwh: 160, powerKw: 0.14,
       printerCost: 779990, amortYears: 3, daysYear: 300, hoursDay: 8,
       failRate: 0.10, laborH: 4000, prepMin: 6, pack: 350, markup: 3.5,
       iva: 0.19, ivaEnQuote: false, quoteValidDays: 15, dayCapacityH: 13,
@@ -75,6 +75,12 @@
   if (!DB) { DB = JSON.parse(JSON.stringify(DEFAULTS)); _fresh=true; }
   for (const k in DEFAULTS){ if (!(k in DB)) DB[k] = JSON.parse(JSON.stringify(DEFAULTS[k])); }
   for (const k in DEFAULTS.params){ if (!(k in DB.params)) DB.params[k] = DEFAULTS.params[k]; }
+  // 10-ago-2026 · El consumo estaba en 0,12 kW, un número puesto a ojo. Se midió la K2
+  // por Moonraker durante una impresión de PLA: la cama va al 5% de su ciclo y el hotend
+  // al 41%, o sea ~125 W en régimen. Con el calentón inicial de cada trabajo, el promedio
+  // real queda en 0,14. Solo se corrige si sigue en el valor viejo, para no pisar un
+  // ajuste hecho a mano.
+  if (DB.params.powerKw === 0.12) { DB.params.powerKw = 0.14; DB._updatedAt = Date.now(); }
   (DB.products||[]).forEach(pr=>{ if(!('filamentId' in pr))pr.filamentId=null; if(!('imageId' in pr))pr.imageId=null; if(!('files' in pr))pr.files=[]; });
   (DB.products||[]).forEach(pr=>{ if(!('stock' in pr))pr.stock=0; if(!('postMin' in pr))pr.postMin=0; });
   if(!DB.orders) DB.orders=[];

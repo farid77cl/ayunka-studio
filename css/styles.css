@@ -123,3 +123,29 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .wsp-txt{white-space:pre-wrap;word-break:break-word;font:inherit;background:var(--crema);
   border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin:10px 0 6px;
   user-select:text;-webkit-user-select:text}
+
+/* ── Diseño 3D ────────────────────────────────────────────
+   Dos columnas en pantalla grande (panel + lienzo) y una sola en el celular,
+   con el lienzo primero: en el teléfono lo que importa es ver lo que se arma. */
+.d3d-layout{grid-template-columns:minmax(280px,380px) 1fr;align-items:start}
+.d3d-capas{max-height:230px;overflow-y:auto;margin-top:4px}
+.d3d-capa{display:flex;align-items:center;gap:6px;padding:6px 7px;border-radius:9px;cursor:pointer;border:1px solid transparent}
+.d3d-capa:hover{background:var(--crema)}
+.d3d-capa.sel{background:var(--crema);border-color:var(--niebla)}
+.d3d-capa .d3d-ico{font-size:13px;opacity:.75;width:16px;flex:none;text-align:center}
+.d3d-capa .d3d-nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px}
+.d3d-capa .d3d-sw{width:14px;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.18);flex:none}
+.d3d-capa .linkish{text-decoration:none;font-size:12px;padding:0 2px;opacity:.7}
+.d3d-capa .linkish:hover{opacity:1}
+.d3d-capa .linkish[disabled]{opacity:.25;cursor:default}
+.d3d-color{width:30px;height:30px;border-radius:8px;border:2px solid transparent;cursor:pointer;color:#fff;
+  font-size:13px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.5);padding:0}
+.d3d-color.act{border-color:var(--carbon)}
+.d3d-lienzo canvas{display:block;background:var(--crema)}
+.d3d-bom{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--pizarra)}
+.d3d-bom li{margin:3px 0}
+.d3d-avisos .pill{line-height:1.35}
+@media(max-width:860px){
+  .d3d-layout{grid-template-columns:1fr}
+  .d3d-layout>div:last-child{order:-1}
+}
