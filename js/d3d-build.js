@@ -34,13 +34,13 @@
       id: uid(), tipo: 'figura',
       nombre: ((window.D3DFormas && window.D3DFormas.FIGURAS[fig] || {}).label) || fig || 'Figura',
       visible: true, color: 3, figura: fig || 'estrella', params: {},
-      x: 0, y: 0, rot: 0, ancho: 15, alto: 15, altura: 1.2, calado: false
+      x: 0, y: 0, z: 0, rot: 0, ancho: 15, alto: 15, altura: 1.2, modo: 'relieve', prof: 1
     }, extra || {});
   }
   function capaImagen(figs, nombre, extra) {
     return Object.assign({
       id: uid(), tipo: 'imagen', nombre: nombre || 'Imagen', visible: true, color: 1,
-      figs: figs || [], x: 0, y: 0, rot: 0, ancho: 30, alto: 30, altura: 1.2, calado: false
+      figs: figs || [], x: 0, y: 0, z: 0, rot: 0, ancho: 30, alto: 30, altura: 1.2, modo: 'relieve', prof: 1
     }, extra || {});
   }
 
@@ -149,6 +149,10 @@
   async function figsDeBase(p) {
     const G = window.D3DFormas, b = p.base;
     if (!b || b.origen === 'ninguna') return [];
+    if (b.origen === 'imagen') {
+      if (!b.figs || !b.figs.length) return [];
+      return G.encajar(b.figs, +b.ancho || 60, +b.alto || 60);   // un logo no se deforma
+    }
     if (b.origen === 'texto') {
       if (!String(b.txt || '').trim()) return [];
       const figs = await window.D3DFuentes.contornos(b.txt, { fuente: b.fuente, mm: +b.alto || 60, align: 'centro' });
@@ -171,39 +175,81 @@
     const capas = (p.capas || []).filter(c => c.visible !== false);
     const resueltas = await Promise.all(capas.map(async c => ({ capa: c, figs: await figsDeCapa(c) })));
 
-    /* Huecos pasantes: argolla, montaje y capas «caladas» (la luz pasa por ahí). */
+    /* Huecos y grabados en la base.
+       El grabado se hace SIN booleanas: la base se corta en franjas horizontales y en
+       las de arriba se abre el hueco con la forma de la capa. Es la misma técnica de
+       la caja de luz, y además deja las contraformas apoyadas en el fondo del grabado
+       en vez de sueltas, que es la ventaja de grabar en lugar de calar.            */
     if (hayBase) {
       const bb = G.bboxDe(baseFigs);
-      const huecos = [];
+      const pasantes = [];
       if (p.argolla && p.argolla.activa) {
         const r = Math.max(0.5, (+p.argolla.d || 4.5) / 2);
-        huecos.push(G.elipse(r, r, 32, +p.argolla.x || 0, +p.argolla.y || 0));
+        pasantes.push(G.elipse(r, r, 32, +p.argolla.x || 0, +p.argolla.y || 0));
       }
       if (p.montaje && p.montaje.activa) {
         const r = Math.max(0.5, (+p.montaje.d || 4.5) / 2);
         const mx = bb.w / 2 - Math.max(8, bb.w * 0.08), my = bb.h / 2 - Math.max(8, bb.h * 0.12);
-        huecos.push(G.elipse(r, r, 28, -mx, my), G.elipse(r, r, 28, mx, my));
+        pasantes.push(G.elipse(r, r, 28, -mx, my), G.elipse(r, r, 28, mx, my));
       }
-      const caladas = resueltas.filter(r => r.capa.calado && r.figs.length);
-      for (const r of caladas) for (const f of r.figs) huecos.push(f.outer);
+      const caladas = resueltas.filter(r => modoDe(r.capa) === 'calado' && r.figs.length);
+      // Van el contorno Y sus contraformas: al anidarlos, el centro de la «o» queda
+      // como isla de material dentro del hueco, que es lo fiel al diseño. Sin esto el
+      // agujero se comía la letra entera y el aviso de «se caen» mentía.
+      for (const r of caladas) for (const f of r.figs) { pasantes.push(f.outer); for (const h of (f.holes || [])) pasantes.push(h); }
       if (caladas.length) {
         const sueltas = caladas.reduce((a, r) => a + r.figs.reduce((n, f) => n + f.holes.length, 0), 0);
-        if (sueltas) avisos.push('Al calar hay ' + sueltas + ' contraforma(s) (el centro de la «o», por ejemplo) que quedan sueltas y se van a caer. Súbelas como relieve o usa una letra sin contraformas.');
+        if (sueltas) avisos.push('Al calar hay ' + sueltas + ' contraforma(s) (el centro de la «o», por ejemplo) que quedan sueltas y se van a caer. Cámbialas a grabado, que sí las deja apoyadas.');
       }
-      if (huecos.length) {
-        const todos = baseFigs.map(f => f.outer).concat(baseFigs.reduce((a, f) => a.concat(f.holes), [])).concat(huecos);
-        baseFigs = G.anidar(todos);
+
+      const anillosBase = baseFigs.map(f => f.outer).concat(baseFigs.reduce((a, f) => a.concat(f.holes), []));
+      const conPasantes = pasantes.length ? G.anidar(anillosBase.concat(pasantes)) : baseFigs;
+
+      const grabadas = resueltas.filter(r => modoDe(r.capa) === 'grabado' && r.figs.length);
+      if (!grabadas.length) {
+        solidos.push({ pieza: 'principal', nombre: 'Base', figs: conPasantes, z0: 0, alt: grosor, color: +b.color || 1 });
+      } else {
+        // cada grabado quita material desde (grosor - prof) hasta arriba
+        const desde = new Map();
+        for (const r of grabadas) {
+          const prof = Math.min(grosor - 0.2, Math.max(0.2, +r.capa.prof || 1));
+          desde.set(r, Math.max(0, grosor - prof));
+        }
+        const cortes = [...new Set([0, grosor].concat([...desde.values()]))].sort((x, y) => x - y);
+        for (let i = 0; i < cortes.length - 1; i++) {
+          const a = cortes[i], z = cortes[i + 1];
+          if (z - a < 0.01) continue;
+          const huecosAqui = [];
+          for (const [r, d] of desde) if (d <= a + 1e-6) for (const f of r.figs) {
+            huecosAqui.push(f.outer);
+            for (const h of (f.holes || [])) huecosAqui.push(h);   // la isla del centro de la «o»
+          }
+          const anillos = conPasantes.map(f => f.outer).concat(conPasantes.reduce((acc, f) => acc.concat(f.holes), []));
+          solidos.push({
+            pieza: 'principal', nombre: i === 0 ? 'Base' : 'Base (grabada)',
+            figs: huecosAqui.length ? G.anidar(anillos.concat(huecosAqui)) : conPasantes,
+            z0: a, alt: z - a, color: +b.color || 1
+          });
+        }
       }
-      solidos.push({ pieza: 'principal', nombre: 'Base', figs: baseFigs, z0: 0, alt: grosor, color: +b.color || 1 });
+      baseFigs = conPasantes;
     }
 
-    /* Relieves encima de la base (o sueltos si no hay base). */
-    const z0 = hayBase ? grosor : 0;
+    /* Relieves. `z` deja subirlos o hundirlos respecto de la cara de la base, que es
+       lo que hace falta cuando la base es una letra de 40 mm y el nombre tiene que
+       quedar metido en su cara y no flotando arriba de todo. */
+    const zCara = hayBase ? grosor : 0;
     for (const { capa, figs } of resueltas) {
-      if (!figs.length || capa.calado) continue;
+      const modo = modoDe(capa);
+      if (!figs.length || modo === 'calado' || modo === 'grabado') continue;
       const alt = Math.max(0.2, +capa.altura || 1.2);
-      solidos.push({ pieza: 'principal', nombre: capa.nombre || 'Capa', figs, z0, alt, color: +capa.color || 2 });
+      const z0 = zCara + (+capa.z || 0);
+      if (z0 + alt <= 0.001) { avisos.push('«' + (capa.nombre || 'una capa') + '» quedó bajo la mesa con esa altura Z. Súbela.'); continue; }
+      solidos.push({ pieza: 'principal', nombre: capa.nombre || 'Capa', figs, z0: Math.max(0, z0), alt: z0 < 0 ? alt + z0 : alt, color: +capa.color || 2 });
       if (alt < 0.6) avisos.push('«' + (capa.nombre || 'una capa') + '» tiene ' + alt + ' mm de relieve: con boquilla 0.4 son 3 capas y casi no se nota. Sube a 0.8 mm o más.');
+      if (hayBase && (+capa.z || 0) === 0 && fueraDeLaBase(G, figs, baseFigs)) {
+        avisos.push('«' + (capa.nombre || 'una capa') + '» se sale del contorno de la base: esa parte queda al aire y necesitará soportes. Muévela adentro o bájala con la altura Z.');
+      }
     }
 
     if (!solidos.length) avisos.push('Todavía no hay nada que imprimir: activa la base o agrega una capa.');
@@ -254,6 +300,30 @@
     if (bbTot.w > bed.x || bbTot.h > bed.y) avisos.push('El diseño mide ' + bbTot.w.toFixed(0) + '×' + bbTot.h.toFixed(0) + ' mm y no cabe en la bandeja de ' + bed.x + '×' + bed.y + ' mm.');
 
     return { solidos, avisos, bom, dims: { ancho: bbTot.w, alto: bbTot.h, espesor: altMax }, piezas: piezasDe(solidos), colores: coloresDe(solidos) };
+  }
+
+  // Compatibilidad: los diseños guardados antes usaban `calado: true`.
+  function modoDe(capa) { return capa.modo || (capa.calado ? 'calado' : 'relieve'); }
+
+  /* ¿Se sale la capa del contorno de la base? Se mira por muestreo (unos 40 puntos
+     por figura): con textos de miles de puntos, comprobarlos todos en cada recálculo
+     dejaba el lienzo pegado. */
+  function fueraDeLaBase(G, figs, baseFigs) {
+    if (!baseFigs || !baseFigs.length) return false;
+    let fuera = 0, total = 0;
+    for (const f of figs) {
+      const n = f.outer.length, paso = Math.max(1, Math.floor(n / 40));
+      for (let i = 0; i < n; i += paso) {
+        total++;
+        const pt = f.outer[i];
+        let dentro = false;
+        for (const bf of baseFigs) {
+          if (G.dentro(pt, bf.outer) && !(bf.holes || []).some(h => G.dentro(pt, h))) { dentro = true; break; }
+        }
+        if (!dentro) fuera++;
+      }
+    }
+    return total > 0 && fuera / total > 0.08;   // un pelín afuera no es problema
   }
 
   function perimetro(pts) { let l = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; l += Math.hypot(b[0] - a[0], b[1] - a[1]); } return l; }
@@ -358,6 +428,6 @@
 
   window.D3DBuild = {
     COLORES, PRESETS, PRESETS_INFO, proyectoVacio, capaTexto, capaFigura, capaImagen,
-    compilar, figsDeCapa, figsDeBase, aThree, geometriaDe, exportarSTL, stlDeGeometrias, hexDe, uid
+    compilar, figsDeCapa, figsDeBase, aThree, geometriaDe, exportarSTL, stlDeGeometrias, hexDe, uid, modoDe
   };
 })();

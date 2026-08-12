@@ -476,6 +476,8 @@
 
   function propsCapa(c) {
     if (!c) return `<div class="card muted" style="font-size:13px">Toca una capa en el lienzo, o agrega una nueva. Puedes arrastrarla para moverla y usar el cuadrito de la esquina para agrandarla.</div>`;
+    const modoC = B().modoDe(c);
+    const alturaBase = (P.base && P.base.origen !== 'ninguna') ? num(P.base.grosor, 3) : 0;
     const comun = `
       <div class="formgrid">
         <label class="field">Posición X (mm)<input type="number" step="0.5" value="${num(c.x, 0)}" oninput="DISENO3D.prop('x',this.value)"></label>
@@ -491,9 +493,25 @@
         <button class="btn ghost sm" title="Centrar solo de lado a lado" onclick="DISENO3D.centrarCapa('x')">Centrar ↔</button>
       </div>
       <label class="field" style="margin-top:10px">Color${selColor(c.color, 'DISENO3D.color')}</label>
-      <label class="row" style="margin-top:10px;gap:8px;font-size:13px">
-        <input type="checkbox" style="width:auto" ${c.calado ? 'checked' : ''} onchange="DISENO3D.prop('calado',this.checked)">
-        <span>Calado (atraviesa la base — para que pase la luz)</span></label>`;
+      <label class="field" style="margin-top:10px">Cómo se apoya
+        <select onchange="DISENO3D.prop('modo',this.value)">
+          <option value="relieve" ${modoC === 'relieve' ? 'selected' : ''}>En relieve (sobresale)</option>
+          <option value="grabado" ${modoC === 'grabado' ? 'selected' : ''}>Grabada (hundida en la base)</option>
+          <option value="calado" ${modoC === 'calado' ? 'selected' : ''}>Calada (atraviesa — pasa la luz)</option>
+        </select></label>
+      ${modoC === 'grabado'
+        ? `<label class="field" style="margin-top:8px">Profundidad del grabado (mm)<input type="number" step="0.2" min="0.2" value="${num(c.prof, 1)}" oninput="DISENO3D.prop('prof',this.value)"></label>
+           <div class="muted" style="margin-top:4px">Grabar deja apoyado el centro de la «o»; calar lo suelta y se cae.</div>`
+        : ''}
+      ${modoC === 'relieve'
+        ? `<label class="field" style="margin-top:8px">Altura Z (mm) <span class="muted">— 0 = sobre la cara de la base</span>
+             <input type="number" step="0.5" value="${num(c.z, 0)}" oninput="DISENO3D.prop('z',this.value)"></label>
+           ${alturaBase > 0 ? `<div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">
+             <button class="btn ghost sm" onclick="DISENO3D.prop('z',0)">A ras de la cara</button>
+             <button class="btn ghost sm" title="Lo mete dentro de la base, a media altura" onclick="DISENO3D.zMedio()">A media altura</button>
+             <button class="btn ghost sm" title="Lo hunde hasta que solo asome" onclick="DISENO3D.zHundir()">Hundir</button>
+           </div>` : ''}`
+        : ''}`;
 
     if (c.tipo === 'texto') {
       const gr = window.D3DFuentes.grupos();
@@ -520,7 +538,8 @@
         `<label class="field">${esc(k)}<input type="number" step="${k === 'puntas' || k === 'petalos' || k === 'rayos' ? 1 : 0.05}"
            value="${(c.params && c.params[k] != null) ? c.params[k] : def.params[k]}" oninput="DISENO3D.param('${escJs(k)}',this.value)"></label>`).join('') : '';
       return `<label class="field">Figura<select onchange="DISENO3D.prop('figura',this.value)">
-          ${G().listaFiguras().map(f => `<option value="${f.id}" ${c.figura === f.id ? 'selected' : ''}>${esc(f.label)}</option>`).join('')}</select></label>
+          ${(() => { const gr = G().gruposFiguras(); return Object.keys(gr).map(g =>
+            `<optgroup label="${esc(g)}">${gr[g].map(f => `<option value="${f.id}" ${c.figura === f.id ? 'selected' : ''}>${esc(f.label)}</option>`).join('')}</optgroup>`).join(''); })()}</select></label>
         <div class="formgrid" style="margin-top:8px">
           <label class="field">Ancho (mm)<input type="number" step="0.5" min="1" value="${num(c.ancho, 15)}" oninput="DISENO3D.prop('ancho',this.value)"></label>
           <label class="field">Alto (mm)<input type="number" step="0.5" min="1" value="${num(c.alto, 15)}" oninput="DISENO3D.prop('alto',this.value)"></label>
@@ -541,15 +560,18 @@
         <label class="field">La base es<select onchange="DISENO3D.base('origen',this.value)">
           <option value="figura" ${origen === 'figura' ? 'selected' : ''}>Una figura</option>
           <option value="texto" ${origen === 'texto' ? 'selected' : ''}>Una letra o palabra</option>
+          <option value="imagen" ${origen === 'imagen' ? 'selected' : ''}>Una imagen mía</option>
           <option value="ninguna" ${origen === 'ninguna' ? 'selected' : ''}>Sin base (piezas sueltas)</option>
         </select></label>
         ${origen === 'figura' ? `<label class="field">Figura<select onchange="DISENO3D.base('figura',this.value)">
-          ${G().listaFiguras().map(f => `<option value="${f.id}" ${b.figura === f.id ? 'selected' : ''}>${esc(f.label)}</option>`).join('')}</select></label>` : ''}
+          ${(() => { const gr = G().gruposFiguras(); return Object.keys(gr).map(g =>
+            `<optgroup label="${esc(g)}">${gr[g].map(f => `<option value="${f.id}" ${b.figura === f.id ? 'selected' : ''}>${esc(f.label)}</option>`).join('')}</optgroup>`).join(''); })()}</select></label>` : ''}
+        ${origen === 'imagen' ? `<label class="field">Imagen<button class="btn ghost sm" style="margin-top:2px" onclick="DISENO3D.addImagen('base')">${(b.figs && b.figs.length) ? 'Cambiar imagen' : 'Subir imagen…'}</button></label>` : ''}
         ${origen === 'texto' ? `<label class="field">Letra o palabra<input value="${esc(b.txt || '')}" oninput="DISENO3D.base('txt',this.value)"></label>
           <label class="field">Tipo de letra<select onchange="DISENO3D.base('fuente',this.value)">
             ${window.D3DFuentes.lista().map(f => `<option value="${f.id}" ${b.fuente === f.id ? 'selected' : ''}>${esc(f.label)}</option>`).join('')}</select></label>` : ''}
         ${origen !== 'ninguna' ? `
-          ${origen === 'figura' ? `<label class="field">Ancho (mm)<input type="number" step="1" min="5" value="${num(b.ancho, 60)}" oninput="DISENO3D.base('ancho',this.value)"></label>` : ''}
+          ${(origen === 'figura' || origen === 'imagen') ? `<label class="field">Ancho (mm)<input type="number" step="1" min="5" value="${num(b.ancho, 60)}" oninput="DISENO3D.base('ancho',this.value)"></label>` : ''}
           <label class="field">${origen === 'texto' ? 'Alto de la letra (mm)' : 'Alto (mm)'}<input type="number" step="1" min="5" value="${num(b.alto, 30)}" oninput="DISENO3D.base('alto',this.value)"></label>
           <label class="field">${origen === 'texto' ? 'Profundidad (mm)' : 'Grosor (mm)'}<input type="number" step="0.5" min="0.4" value="${num(b.grosor, 3)}" oninput="DISENO3D.base('grosor',this.value)"></label>` : ''}
       </div>
@@ -741,14 +763,23 @@
     sel(id) { sel = (sel === id ? null : id); pintarPanel(); dibujar(); },
     prop(k, v) {
       const c = capaSel(); if (!c) return;
-      c[k] = (typeof v === 'boolean' || ['txt', 'fuente', 'align', 'figura'].includes(k)) ? v : num(v, 0);
+      c[k] = (typeof v === 'boolean' || ['txt', 'fuente', 'align', 'figura', 'modo'].includes(k)) ? v : num(v, 0);
       if (k === 'txt') c.nombre = String(v).split('\n')[0].slice(0, 24) || 'Texto';
       if (k === 'figura') { c.params = {}; c.nombre = (G().FIGURAS[v] || {}).label || v; }
       cacheFigs.delete(c.id);
-      cambio(k === 'figura' || k === 'txt');
+      cambio(k === 'figura' || k === 'txt' || k === 'modo');
     },
     param(k, v) { const c = capaSel(); if (!c) return; c.params = c.params || {}; c.params[k] = num(v, 0); cacheFigs.delete(c.id); cambio(); },
     sinEstirar() { const c = capaSel(); if (!c) return; c.escalaX = 1; c.escalaY = 1; cambio(true); },
+    // Con una base gruesa (una letra de 40 mm) el relieve queda flotando arriba de
+    // todo. Estos dos atajos lo meten dentro de la cara sin pelear con el número.
+    zMedio() { const c = capaSel(); if (!c) return; c.z = -Math.round(num(P.base.grosor, 3) / 2 * 10) / 10; cambio(true); },
+    zHundir() {
+      const c = capaSel(); if (!c) return;
+      const alt = num(c.altura, 1.2);
+      c.z = -Math.round(Math.max(0, alt - 0.6) * 10) / 10;   // deja 0,6 mm asomando
+      cambio(true);
+    },
     girar(g) { const c = capaSel(); if (!c) return; c.rot = Math.round(((num(c.rot, 0) + g) % 360 + 360) % 360 * 10) / 10; cambio(true); },
     enderezar() { const c = capaSel(); if (!c) return; c.rot = 0; cambio(true); },
     centrarCapa(eje) {
@@ -792,7 +823,7 @@
     led(k, v) { P.led = P.led || {}; P.led[k] = k === 'modo' ? v : num(v, 0); cambio(true); },
 
     /* --- imagen --- */
-    addImagen() {
+    addImagen(destino) {
       const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*';
       i.onchange = e => {
         const f = e.target.files[0]; if (!f) return;
@@ -804,7 +835,7 @@
           const w = Math.max(8, Math.round(img.width * k)), h = Math.max(8, Math.round(img.height * k));
           const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
           const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, w, h);
-          imgTmp = { imageData: cx.getImageData(0, 0, w, h), nombre: f.name.replace(/\.[^.]+$/, ''), umbral: 0.5, invertir: false, detalle: 0.6, soloMayor: false, ancho: 30 };
+          imgTmp = { imageData: cx.getImageData(0, 0, w, h), nombre: f.name.replace(/\.[^.]+$/, ''), umbral: 0.5, invertir: false, detalle: 0.6, soloMayor: false, ancho: destino === 'base' ? 80 : 30, destino: destino === 'base' ? 'base' : 'capa' };
           URL.revokeObjectURL(img.src);
           API._modalImg();
         };
@@ -819,7 +850,7 @@
       t._figs = prev.figs;
       const svg = figsASvg(prev.figs, 240, 240);
       $('#modal-root').innerHTML = `<div class="modal-bg" onclick="if(event.target===this)DISENO3D.cerrarImg()"><div class="modal">
-        <h2>Convertir imagen en relieve</h2>
+        <h2>${t.destino === 'base' ? 'Usar la imagen como forma de la base' : 'Convertir imagen en relieve'}</h2>
         <div class="muted" style="margin-bottom:10px">Se busca la silueta. Mueve el umbral hasta que se vea la forma que quieres; lo negro es lo que se imprime.</div>
         <div style="background:#ECE6DA;border-radius:12px;padding:8px;text-align:center;min-height:150px">${prev.figs.length ? svg : `<div class="muted" style="padding:40px">${esc(prev.aviso || 'Sin contorno')}</div>`}</div>
         <div class="formgrid" style="margin-top:12px">
@@ -839,8 +870,17 @@
     cerrarImg() { imgTmp = null; $('#modal-root').innerHTML = ''; },
     usarImg() {
       const t = imgTmp; if (!t || !t._figs || !t._figs.length) return;
-      const b = G().bboxDe(t._figs);
-      const alto = b.w ? t.ancho * (b.h / b.w) : t.ancho;
+      const bb = G().bboxDe(t._figs);
+      const alto = bb.w ? t.ancho * (bb.h / bb.w) : t.ancho;
+      if (t.destino === 'base') {
+        P.base = P.base || {};
+        P.base.origen = 'imagen'; P.base.figs = t._figs;
+        P.base.ancho = t.ancho; P.base.alto = Math.max(1, Math.round(alto * 10) / 10);
+        cacheBase = { clave: null, figs: [] };
+        API.cerrarImg(); pintarPanel(); dibujar(true); agendar3D(); guardarSuave();
+        toast('La base ahora tiene la forma de tu imagen');
+        return;
+      }
       const c = B().capaImagen(t._figs, t.nombre, { ancho: t.ancho, alto: Math.max(1, Math.round(alto * 10) / 10), altura: 1.2, color: 2 });
       P.capas.push(c); sel = c.id;
       API.cerrarImg(); cambio(true);
@@ -886,16 +926,34 @@
         <div class="muted" style="margin-bottom:12px">${c.dims.ancho.toFixed(0)} × ${c.dims.alto.toFixed(0)} × ${c.dims.espesor.toFixed(1)} mm · ${c.colores.length} color(es) · ${c.piezas.length} pieza(s)</div>
         ${c.avisos.length ? `<div style="margin-bottom:12px">${c.avisos.map(a => `<div class="pill warn" style="display:block;white-space:normal;margin-top:6px">${esc(a)}</div>`).join('')}</div>` : ''}
         <div class="row" style="gap:8px;flex-wrap:wrap">
-          <button class="btn primary" onclick="DISENO3D.bajar('color')">Un STL por color (CFS)</button>
+          <button class="btn primary" onclick="DISENO3D.bajar3mf()">3MF con los colores puestos</button>
+        </div>
+        <div class="muted" style="margin-top:8px"><b>Usa este.</b> El 3MF guarda los colores: al abrirlo en Creality Print cada parte ya viene asignada a su carrete del CFS. El STL no guarda color — por eso la pieza sale de uno solo.</div>
+        <div class="sectiontitle">STL (si lo necesitas)</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn ghost" onclick="DISENO3D.bajar('color')">Un STL por color</button>
           <button class="btn ghost" onclick="DISENO3D.bajar('pieza')">Un STL por pieza</button>
           <button class="btn ghost" onclick="DISENO3D.bajar('todo')">Todo en uno</button>
         </div>
-        <div class="muted" style="margin-top:10px">«Por color» es lo que necesitas para el CFS: cargas los archivos juntos en Creality Print, quedan alineados, y a cada uno le asignas su carrete.</div>
+        <div class="muted" style="margin-top:8px">Con «un STL por color» hay que cargar <b>todos</b> los archivos juntos en el laminador: quedan alineados y a cada uno le asignas su carrete. Si cargas uno solo, sale una parte suelta.</div>
         ${c.bom.length ? `<div class="sectiontitle">Qué comprar</div><ul class="d3d-bom">${c.bom.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
         <div class="row between" style="margin-top:16px">
           <button class="btn ghost" onclick="A.closeModal()">Cerrar</button>
           <button class="btn ghost" onclick="DISENO3D.guardarProducto()">Guardar como producto</button>
         </div></div></div>`;
+    },
+    bajar3mf() {
+      if (!compilado) return;
+      if (!window.D3D3MF) { toast('El exportador 3MF no cargó'); return; }
+      let r;
+      try { r = window.D3D3MF.exportar3MF(compilado, P.nombre); }
+      catch (e) { console.error(e); toast('Error al generar el 3MF: ' + (e.message || e)); return; }
+      if (!r) { toast('No hay nada que exportar'); return; }
+      const blob = new Blob([r.datos], { type: 'model/3mf' });
+      const u = URL.createObjectURL(blob); const a = document.createElement('a');
+      a.href = u; a.download = r.nombre; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(u), 4000);
+      toast('3MF listo · ' + r.colores.length + ' color(es) ya asignados');
     },
     bajar(modo) {
       if (!compilado) return;

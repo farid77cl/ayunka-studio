@@ -295,6 +295,109 @@
     boton: { label: 'Botón', gen: () => {
       const hoyos = [[-16, 16], [16, 16], [-16, -16], [16, -16]].map(([x, y]) => elipse(8, 8, 28, x, y));
       return [elipse(50, 50, 72)].concat(hoyos);
+    } },
+
+    /* --- motivos escolares --- */
+    lapiz: { label: 'Lápiz', grupo: 'Escolar', gen: () => [[
+      [-14, -50], [14, -50], [14, 22], [10, 34], [0, 50], [-10, 34], [-14, 22]]] },
+
+    libro: { label: 'Libro abierto', grupo: 'Escolar', gen: () => {
+      const tapa = [[-50, -24], [0, -34], [50, -24], [50, 26], [0, 16], [-50, 26]];
+      return [tapa, [[-2.5, -33], [2.5, -33], [2.5, 15], [-2.5, 15]]];  // el lomo
+    } },
+
+    manzana: { label: 'Manzana', grupo: 'Escolar', gen: () => {
+      const cuerpo = polar(170, t => {
+        const dent = 9 * Math.pow(Math.max(0, Math.sin(t)), 14);   // la muesca de arriba
+        const r = 43 - dent;
+        return [Math.cos(t) * r * 1.04, Math.sin(t) * r];
+      });
+      const tallo = [[-2.6, 30], [2.6, 30], [3.6, 52], [-1.6, 52]];
+      const hoja = polar(40, t => [Math.cos(t) * 13 + 15, Math.sin(t) * 5.5 + 47]);
+      return [cuerpo, tallo, hoja];
+    } },
+
+    mochila: { label: 'Mochila', grupo: 'Escolar', gen: () => {
+      const cuerpo = rrectPts(74, 84, 16, 8);
+      const solapa = [[-37, 14], [37, 14], [37, 34], [0, 46], [-37, 34]];
+      const asa = [[-13, 40], [13, 40], [13, 50], [-13, 50]];
+      return [cuerpo, solapa, asa];
+    } },
+
+    regla: { label: 'Regla', grupo: 'Escolar', gen: () => {
+      const cuerpo = rrectPts(100, 26, 4, 4);
+      const marcas = [];
+      for (let i = -4; i <= 4; i++) marcas.push(rrectPts(2.6, i % 2 ? 8 : 13, 1, 2).map(p => [p[0] + i * 10, p[1] + 13 - (i % 2 ? 4 : 6.5)]));
+      return [cuerpo].concat(marcas);   // las marcas quedan dentro: salen como huecos
+    } },
+
+    pizarra: { label: 'Pizarra', grupo: 'Escolar', gen: () => [rrectPts(100, 72, 5, 5), rrectPts(86, 58, 3, 4)] },
+
+    birrete: { label: 'Birrete', grupo: 'Escolar', gen: () => {
+      const tabla = [[0, 40], [54, 16], [0, -8], [-54, 16]];
+      const gorro = [[-25, 12], [25, 12], [21, -20], [-21, -20]];
+      const cordon = [[46, 14], [51, 14], [51, -18], [46, -18]];
+      const borla = elipse(8, 9, 28, 48.5, -26);
+      return [tabla, gorro, cordon, borla];
+    } },
+
+    campana: { label: 'Campana', grupo: 'Escolar', gen: () => {
+      const cuerpo = polar(120, t => {
+        const c = Math.cos(t), s = Math.sin(t);
+        return [c * (26 + 20 * (1 - s) / 2), s * 34 - 4];
+      });
+      const falda = [[-44, -30], [44, -30], [44, -40], [-44, -40]];
+      const badajo = elipse(8, 8, 26, 0, -46);
+      const agarre = elipse(7, 7, 24, 0, 34);
+      return [cuerpo, falda, badajo, agarre];
+    } },
+
+    bus: { label: 'Bus escolar', grupo: 'Escolar', gen: () => {
+      const cuerpo = rrectPts(104, 54, 10, 6).map(p => [p[0], p[1] + 4]);
+      const ventanas = [-34, -11, 12].map(x => rrectPts(19, 16, 2, 3).map(p => [p[0] + x, p[1] + 15]));
+      const parabrisas = rrectPts(15, 16, 2, 3).map(p => [p[0] + 39, p[1] + 15]);
+      const ruedas = [[-30, -26], [30, -26]].map(([x, y]) => elipse(12, 12, 32, x, y));
+      return [cuerpo].concat(ventanas, [parabrisas], ruedas);
+    } },
+
+    cohete: { label: 'Cohete', grupo: 'Escolar', gen: () => {
+      const cuerpo = polar(90, t => {
+        const s = Math.sin(t);
+        const r = s > 0 ? 20 - 12 * Math.pow(s, 3) : 20;
+        return [Math.cos(t) * r, s > 0 ? s * 50 : s * 34];
+      });
+      const aletas = [[[-20, -14], [-38, -40], [-20, -34]], [[20, -14], [38, -40], [20, -34]]];
+      const fuego = [[-11, -34], [11, -34], [0, -52]];
+      const ventana = elipse(9, 9, 28, 0, 16);
+      return [cuerpo].concat(aletas, [fuego, ventana]);
+    } },
+
+    paleta: { label: 'Paleta de pintura', grupo: 'Escolar', gen: () => {
+      const cuerpo = polar(140, t => {
+        const r = 48 * (1 + 0.12 * Math.cos(3 * t + 1));
+        return [Math.cos(t) * r, Math.sin(t) * r * 0.82];
+      });
+      const pulgar = elipse(11, 9, 30, 17, -12);
+      const pozos = [[-24, 14], [-4, 22], [16, 16], [-20, -8]].map(([x, y]) => elipse(7.5, 7.5, 26, x, y));
+      return [cuerpo, pulgar].concat(pozos);
+    } },
+
+    avion: { label: 'Avión de papel', grupo: 'Escolar', gen: () => [[
+      [-50, 34], [50, -2], [-50, -34], [-30, -4], [-50, 34]]] },
+
+    nota: { label: 'Nota musical', grupo: 'Escolar', gen: () => {
+      const cabeza = polar(48, t => [Math.cos(t) * 20 - 16, Math.sin(t) * 15 - 30]);
+      const palo = [[0, -30], [8, -30], [8, 44], [0, 44]];
+      const bandera = [[8, 44], [30, 32], [30, 14], [8, 26]];
+      return [cabeza, palo, bandera];
+    } },
+
+    tijeras: { label: 'Tijeras', grupo: 'Escolar', gen: () => {
+      const hoja = s => [[s * 3, -6], [s * 10, -2], [s * 20, 46], [s * 12, 50], [s * 2, 6]];
+      const aro = s => elipse(13, 13, 30, s * 15, -34);
+      const aroInt = s => elipse(6.5, 6.5, 24, s * 15, -34);
+      const brazo = s => [[s * 2, 0], [s * 9, -4], [s * 19, -26], [s * 11, -30]];
+      return [hoja(1), hoja(-1), brazo(1), brazo(-1), aro(1), aroInt(1), aro(-1), aroInt(-1)];
     } }
   };
 
@@ -310,7 +413,14 @@
     const figs = anidar(contornos);
     return def.nativo ? centrar(figs) : estirar(figs, w, h);
   }
-  function listaFiguras() { return Object.keys(FIGURAS).map(k => ({ id: k, label: FIGURAS[k].label, params: FIGURAS[k].params || null })); }
+  function listaFiguras() {
+    return Object.keys(FIGURAS).map(k => ({ id: k, label: FIGURAS[k].label, grupo: FIGURAS[k].grupo || 'Formas y adornos', params: FIGURAS[k].params || null }));
+  }
+  function gruposFiguras() {
+    const g = {};
+    for (const f of listaFiguras()) (g[f.grupo] = g[f.grupo] || []).push(f);
+    return g;
+  }
 
   /* ---------- vectorizar una imagen ----------
      Se sigue el "borde entre píxeles" (crack following) en vez de marching squares:
@@ -428,7 +538,7 @@
   window.D3DFormas = {
     area, bbox, bboxDe, dentro, simplificar, anidar, mapear, transformar, encajar, centrar,
     contraer, contraerSeguro, estirar,
-    figura, listaFiguras, FIGURAS, rrectPts, elipse,
+    figura, listaFiguras, gruposFiguras, FIGURAS, rrectPts, elipse,
     trazarImagen, mascaraDe, contornosDeMascara
   };
 })();

@@ -5,7 +5,8 @@ App web (PWA) para gestionar la producción de **Ayünka Crea** — accesorios 3
 ## Qué hace
 
 - **Diseño 3D** — crea llaveros publicitarios, letreros con luz LED, letras con nombre y
-  recuerdos de nacimiento sin salir de la app, y exporta el STL listo para la K2 Combo.
+  recuerdos de nacimiento sin salir de la app, y exporta el **3MF con los colores puestos**
+  para el CFS de la K2 Combo.
   Ver «[Diseño 3D](#diseño-3d-taller--diseño-3d)» más abajo.
 - **Productos** — costo de producción por pieza (filamento, luz, amortización, mano de obra, empaque y **merma**) y **precio sugerido** con tu margen. Cada producto puede tener **foto**, un **filamento asociado** (usa el precio real de esa marca/rollo, no un promedio) y uno o varios **archivos STL/3MF** que se abren con un clic para laminar.
 - **Filamentos** — inventario por marca y color; cada rollo con su propio precio y costo por gramo, con alertas de stock bajo. Como tienes PLA de distintas marcas, cada producto toma el costo del filamento que le asocies.
@@ -67,6 +68,7 @@ js/app.js               · router y módulos de la interfaz
 js/d3d-formas.js        · Diseño 3D: figuras paramétricas y vectorizador de imágenes
 js/d3d-fuentes.js       · Diseño 3D: texto a contornos (opentype.js)
 js/d3d-build.js         · Diseño 3D: proyecto → sólidos → STL
+js/d3d-3mf.js           · Diseño 3D: exportar 3MF multicolor (ZIP propio)
 js/design3d.js          · Diseño 3D: lienzo 2D, capas y vista 3D
 manifest.webmanifest    · PWA
 sw.js                   · service worker (offline)
@@ -167,15 +169,30 @@ dedo. Se reencuadra al abrir, al cambiar de plantilla y con el botón «Centrar�
 - **Texto** — 14 tipografías reales (cursivas como Pacifico o Great Vibes, palo seco,
   redondeadas). Acentos y ñ salen bien. Varias líneas, alineación, separación de letras y
   **estirado** (letras condensadas o altas) sin tocar el tamaño nominal.
-- **Figuras** — 25 formas: nube, luna, estrella, flor, corazón, osito, conejo, huellita,
-  mariposa, moño, carrete de hilo, botón, hueso… con parámetros propios (las puntas de
-  la estrella, los pétalos de la flor).
+- **Figuras** — 39 formas en dos grupos, con parámetros propios (las puntas de la
+  estrella, los pétalos de la flor):
+  - *Formas y adornos*: nube, luna, estrella, flor, corazón, osito, conejo, huellita,
+    mariposa, moño, carrete de hilo, botón, hueso…
+  - *Escolar*: lápiz, libro, manzana, mochila, regla, pizarra, birrete, campana, bus,
+    cohete, paleta de pintura, avión de papel, nota musical, tijeras.
 - **Imágenes** — subes un PNG o JPG (un logo, un dibujo) y se convierte en relieve. El
   control de **umbral** decide qué parte es sólida; conserva los huecos (la contraforma
   de una «O», el centro de una dona) y descarta las manchitas sueltas.
 
-Cada capa lleva su color, su altura de relieve, su posición y su giro, y puede marcarse
-**calada** para que atraviese la base — que es como se hace que la luz pase por el texto.
+Cada capa lleva su color, su posición, su giro y **cómo se apoya**:
+
+- **En relieve** — sobresale. Con **Altura Z** se sube o se hunde respecto de la cara de la
+  base: es lo que hace falta cuando la base es una letra de 40 mm y el nombre tiene que
+  quedar metido en su cara y no flotando arriba de todo. Los atajos «A media altura» y
+  «Hundir» lo resuelven sin pelear con el número.
+- **Grabada** — hundida en la base, a la profundidad que elijas. Deja las contraformas
+  (el centro de la «o») **apoyadas en el fondo**, así que no se caen.
+- **Calada** — atraviesa de lado a lado, para que pase la luz. Aquí las contraformas sí
+  quedan sueltas y la app avisa cuántas son.
+
+La **base** puede ser una figura, una letra o palabra, **una imagen tuya** o nada (piezas
+sueltas). Si una capa se sale del contorno de la base, la app avisa de que esa parte queda
+al aire y pedirá soportes.
 
 ### Plantillas de partida
 
@@ -202,12 +219,20 @@ Dos caminos, según lo que quieras:
 
 ### Exportar para la K2 Combo
 
-- **Un STL por color** — lo que necesita el **CFS**: cargas los archivos juntos en
-  Creality Print, quedan alineados entre sí y a cada uno le asignas su carrete.
-- **Un STL por pieza** — para la caja de luz, que se imprime en tandas distintas.
-- **Todo en uno** — para imprimir en un solo color.
+**Usa 3MF.** El STL *no guarda color* — es una lista de triángulos y nada más — así que
+una pieza pensada en cuatro colores llega al laminador como un bloque de uno solo. El 3MF
+sí lo guarda: al abrirlo en Creality Print, cada parte ya viene asignada a su carrete del
+CFS. El archivo se escribe con la estructura que entienden Creality Print, OrcaSlicer,
+Bambu Studio y PrusaSlicer (un objeto por pieza física y, dentro, un volumen por color).
 
-También puede **guardarse como producto**, que sube los STL y crea la ficha para costearlo.
+Quedan también las salidas en STL, por si hacen falta:
+
+- **Un STL por color** — hay que cargar **todos** los archivos juntos; quedan alineados y
+  a cada uno le asignas su carrete. Si cargas uno solo, sale una parte suelta.
+- **Un STL por pieza** — para la caja de luz, que se imprime en tandas distintas.
+- **Todo en uno** — solo si vas a imprimir en un color.
+
+También puede **guardarse como producto**, que sube los archivos y crea la ficha para costearlo.
 
 ### Trampas de esta pestaña
 
@@ -222,3 +247,5 @@ También puede **guardarse como producto**, que sube los STL y crea la ficha par
   y mucho menos frágil.
 - **Las medidas mandan sobre la proporción**: si pones 65 × 28 la placa mide eso, aunque
   la figura se estire. Las imágenes son la excepción — nunca se deforman.
+- **El STL no lleva color, nunca.** Si la pieza sale de un solo color en el laminador, es
+  que se exportó en STL: usa el 3MF.
