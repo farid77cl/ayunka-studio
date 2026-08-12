@@ -26,7 +26,7 @@
     return Object.assign({
       id: uid(), tipo: 'texto', nombre: txt || 'Texto', visible: true, color: 2,
       txt: txt || 'Texto', fuente: 'poppins', mm: 10, align: 'centro', espaciado: 0, interlinea: 1.25,
-      x: 0, y: 0, rot: 0, escalaX: 1, escalaY: 1, altura: 1.2, calado: false
+      x: 0, y: 0, z: 0, rot: 0, escalaX: 1, escalaY: 1, altura: 1.2, modo: 'relieve', prof: 1
     }, extra || {});
   }
   function capaFigura(fig, extra) {
